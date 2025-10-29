@@ -9,6 +9,7 @@ interface Node {
   y: number;
   isStart?: boolean;
   isEnd?: boolean;
+  connectedTo: number[]; // Adjacent nodes
 }
 
 const MiniGameDemo = () => {
@@ -17,12 +18,13 @@ const MiniGameDemo = () => {
   const [timeLeft, setTimeLeft] = useState(30);
   const [score, setScore] = useState(0);
 
+  // Define nodes with adjacency information
   const nodes: Node[] = [
-    { id: 1, x: 20, y: 20, isStart: true },
-    { id: 2, x: 50, y: 30 },
-    { id: 3, x: 35, y: 60 },
-    { id: 4, x: 65, y: 50 },
-    { id: 5, x: 80, y: 80, isEnd: true },
+    { id: 1, x: 20, y: 20, isStart: true, connectedTo: [2, 3] },
+    { id: 2, x: 50, y: 30, connectedTo: [1, 3, 4] },
+    { id: 3, x: 35, y: 60, connectedTo: [1, 2, 5] },
+    { id: 4, x: 65, y: 50, connectedTo: [2, 5] },
+    { id: 5, x: 80, y: 80, isEnd: true, connectedTo: [3, 4] },
   ];
 
   const correctPath = [1, 2, 4, 5]; // Shortest path
@@ -37,6 +39,7 @@ const MiniGameDemo = () => {
   }, [gameState, timeLeft]);
 
   const startGame = () => {
+    console.log("Starting game...");
     setGameState("playing");
     setSelectedPath([1]); // Start at node 1
     setTimeLeft(30);
@@ -44,15 +47,35 @@ const MiniGameDemo = () => {
   };
 
   const selectNode = (nodeId: number) => {
-    if (gameState !== "playing") return;
-    if (selectedPath.includes(nodeId)) return;
+    console.log("Node clicked:", nodeId, "Game state:", gameState, "Current path:", selectedPath);
+    
+    if (gameState !== "playing") {
+      console.log("Game not in playing state");
+      return;
+    }
+    
+    if (selectedPath.includes(nodeId)) {
+      console.log("Node already selected");
+      return;
+    }
+
+    // Check if this node is connected to the last node in path
+    const lastNodeId = selectedPath[selectedPath.length - 1];
+    const lastNode = nodes.find(n => n.id === lastNodeId);
+    
+    if (!lastNode?.connectedTo.includes(nodeId)) {
+      console.log("Node not connected to last node in path");
+      return; // Can't select this node - not adjacent
+    }
 
     const newPath = [...selectedPath, nodeId];
     setSelectedPath(newPath);
+    console.log("New path:", newPath);
 
-    // Check if won
+    // Check if reached the end
     if (nodeId === 5) {
       const isCorrect = JSON.stringify(newPath) === JSON.stringify(correctPath);
+      console.log("Reached end! Correct path?", isCorrect);
       if (isCorrect) {
         setScore(100 + timeLeft * 10);
         setGameState("won");
@@ -108,13 +131,18 @@ const MiniGameDemo = () => {
               {/* Nodes */}
               {nodes.map((node) => {
                 const isSelected = selectedPath.includes(node.id);
-                const isNext = gameState === "playing" && selectedPath[selectedPath.length - 1] === node.id;
+                const lastNodeId = selectedPath[selectedPath.length - 1];
+                const lastNode = nodes.find(n => n.id === lastNodeId);
+                const isClickable = gameState === "playing" && 
+                                  !isSelected && 
+                                  lastNode?.connectedTo.includes(node.id);
+                const isCurrentNode = lastNodeId === node.id;
                 
                 return (
                   <button
                     key={node.id}
                     onClick={() => selectNode(node.id)}
-                    disabled={gameState !== "playing" || isSelected}
+                    disabled={gameState !== "playing" || isSelected || !isClickable}
                     className={`absolute w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2 ${
                       node.isStart
                         ? "bg-secondary text-secondary-foreground shadow-glow scale-110 ring-4 ring-secondary/30"
@@ -122,9 +150,11 @@ const MiniGameDemo = () => {
                         ? "bg-primary text-primary-foreground shadow-glow scale-110 ring-4 ring-primary/30"
                         : isSelected
                         ? "bg-primary/80 text-primary-foreground scale-105"
-                        : isNext
-                        ? "bg-card border-2 border-primary animate-pulse"
-                        : "bg-card border-2 border-border hover:border-primary hover:scale-110"
+                        : isCurrentNode
+                        ? "bg-primary text-primary-foreground scale-110 ring-4 ring-primary/50"
+                        : isClickable
+                        ? "bg-card border-2 border-primary hover:scale-110 hover:bg-primary/20 cursor-pointer"
+                        : "bg-card border-2 border-border opacity-50 cursor-not-allowed"
                     }`}
                     style={{ left: `${node.x}%`, top: `${node.y}%` }}
                   >
