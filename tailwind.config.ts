@@ -47,6 +47,12 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        "treasure-gold": "hsl(var(--treasure-gold))",
+        "treasure-gold-dark": "hsl(var(--treasure-gold-dark))",
+        "emerald": "hsl(var(--emerald))",
+        "emerald-dark": "hsl(var(--emerald-dark))",
+        "adventure-blue": "hsl(var(--adventure-blue))",
+        "adventure-blue-dark": "hsl(var(--adventure-blue-dark))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -84,6 +90,13 @@ export default {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-subtle": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "pulse-border": "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "draw-line": "draw-line 0.3s ease-out",
+      },
+      boxShadow: {
+        "glow": "var(--shadow-glow)",
+        "emboss": "var(--shadow-emboss)",
       },
     },
   },
