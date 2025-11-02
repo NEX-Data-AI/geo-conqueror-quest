@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Compass, Map, Sword, Trophy } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Hero = () => {
+  const navigate = useNavigate();
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-b from-background via-background to-adventure-blue/20">
       {/* Animated compass background */}
@@ -49,11 +52,11 @@ const Hero = () => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-            <Button size="lg" variant="hero" className="text-lg px-8 py-6">
-              Try Mini-Game Demo
+            <Button size="lg" variant="hero" className="text-lg px-8 py-6" onClick={() => navigate('/map')}>
+              Start Quest
             </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-2">
-              View Project Overview
+            <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-2" onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}>
+              View Demo
             </Button>
           </div>
 
