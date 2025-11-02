@@ -1,0 +1,30 @@
+export interface GISLayer {
+  id: string;
+  name: string;
+  type: 'point' | 'line' | 'polygon' | 'raster';
+  visible: boolean;
+  opacity: number;
+  data: GeoJSON.FeatureCollection;
+  style?: {
+    color?: string;
+    fillColor?: string;
+    fillOpacity?: number;
+    weight?: number;
+  };
+}
+
+export interface LayerStyle {
+  color: string;
+  fillColor: string;
+  fillOpacity: number;
+  weight: number;
+}
+
+export interface DrawingFeature {
+  type: 'Feature';
+  geometry: {
+    type: 'Point' | 'LineString' | 'Polygon';
+    coordinates: any;
+  };
+  properties: Record<string, any>;
+}
