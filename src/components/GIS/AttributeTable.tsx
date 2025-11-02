@@ -115,10 +115,11 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
               const originalIndex = currentFilterMode === 'selected' 
                 ? layer.data.features.indexOf(feature)
                 : idx;
+              const isSelected = selectedIndices.includes(originalIndex);
 
               return (
-                <tr key={originalIndex} className="border-b hover:bg-muted/50">
-                  <td className="p-2 text-muted-foreground sticky left-0 bg-background z-10">{originalIndex + 1}</td>
+                <tr key={originalIndex} className={`border-b hover:bg-muted/50 ${isSelected ? 'bg-green-500/20' : ''}`}>
+                  <td className={`p-2 text-muted-foreground sticky left-0 z-10 ${isSelected ? 'bg-green-500/20' : 'bg-background'}`}>{originalIndex + 1}</td>
                   {propertyKeys.map(property => {
                     const value = feature.properties?.[property];
                     const isEditing = editingCell?.layerId === layer.id &&
@@ -128,7 +129,7 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
                     return (
                       <td
                         key={property}
-                        className="p-2 cursor-pointer hover:bg-muted/30 whitespace-nowrap"
+                        className={`p-2 cursor-pointer hover:bg-muted/30 whitespace-nowrap ${isSelected ? 'bg-green-500/20' : ''}`}
                         onClick={() => !isEditing && startEdit(layer.id, originalIndex, property, value)}
                       >
                         {isEditing ? (
@@ -158,7 +159,7 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
                       </td>
                     );
                   })}
-                  <td className="p-2 sticky right-0 bg-background z-10">
+                  <td className={`p-2 sticky right-0 z-10 ${isSelected ? 'bg-green-500/20' : 'bg-background'}`}>
                     <Button
                       variant="ghost"
                       size="sm"

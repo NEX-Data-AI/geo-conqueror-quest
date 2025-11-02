@@ -96,6 +96,12 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
   useEffect(() => {
     if (onClearSelectionRef) {
       onClearSelectionRef.current = () => {
+        // Close any active popups
+        if (activePopup.current) {
+          activePopup.current.remove();
+          activePopup.current = null;
+        }
+        
         // Clear highlighted features
         highlightedFeatures.current.clear();
         
