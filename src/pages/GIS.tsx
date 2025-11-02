@@ -9,7 +9,7 @@ const GIS = () => {
   const [layers, setLayers] = useState<GISLayer[]>([]);
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
   const [activeLayer, setActiveLayer] = useState<string | null>(null);
-  const [drawMode, setDrawMode] = useState<DrawingMode>({ type: null, purpose: 'feature' });
+  const [drawMode, setDrawMode] = useState<DrawingMode>({ type: 'select', purpose: 'feature', selectMode: 'click' });
   const [showAttributeTable, setShowAttributeTable] = useState(false);
   const [selectedFeatures, setSelectedFeatures] = useState<Map<string, number[]>>(new Map());
 

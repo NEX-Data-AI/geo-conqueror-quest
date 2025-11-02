@@ -253,12 +253,14 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
               }
             });
             map.current!.on('mouseenter', `${layer.id}-line`, () => {
-              if (drawMode.type === 'select') {
+              if (drawMode.type === 'select' && drawMode.selectMode === 'click') {
                 map.current!.getCanvas().style.cursor = 'pointer';
               }
             });
             map.current!.on('mouseleave', `${layer.id}-line`, () => {
-              map.current!.getCanvas().style.cursor = '';
+              if (drawMode.type === 'select' && drawMode.selectMode === 'click') {
+                map.current!.getCanvas().style.cursor = 'default';
+              }
             });
           }
         } else if (layer.type === 'point') {
@@ -297,12 +299,14 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
               }
             });
             map.current!.on('mouseenter', `${layer.id}-circle`, () => {
-              if (drawMode.type === 'select') {
+              if (drawMode.type === 'select' && drawMode.selectMode === 'click') {
                 map.current!.getCanvas().style.cursor = 'pointer';
               }
             });
             map.current!.on('mouseleave', `${layer.id}-circle`, () => {
-              map.current!.getCanvas().style.cursor = '';
+              if (drawMode.type === 'select' && drawMode.selectMode === 'click') {
+                map.current!.getCanvas().style.cursor = 'default';
+              }
             });
           }
         }

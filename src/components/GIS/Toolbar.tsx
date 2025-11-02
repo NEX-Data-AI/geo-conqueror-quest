@@ -153,7 +153,11 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
               size="sm"
               className="z-[999] relative"
             >
-              <MousePointer className="h-4 w-4 mr-2" />
+              {drawMode.selectMode === 'polygon' ? (
+                <Square className="h-4 w-4 mr-2" />
+              ) : (
+                <MousePointer className="h-4 w-4 mr-2" />
+              )}
               Select
             </Button>
           </PopoverTrigger>
