@@ -394,8 +394,8 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
   };
 
   return (
-    <div className="relative flex-1">
-      <div ref={mapContainer} className="absolute inset-0" />
+    <div className="relative w-full h-full">
+      <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
       
       {/* Basemap Switcher */}
       <div className="absolute top-4 left-4 z-[999]">
