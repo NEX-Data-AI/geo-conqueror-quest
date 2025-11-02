@@ -10,7 +10,7 @@ export type DrawingMode = {
   type: 'point' | 'line' | 'polygon' | 'select' | null;
   purpose: 'annotation' | 'feature';
   targetLayerId?: string;
-  selectMode?: 'click' | 'polygon';
+  selectMode?: 'click' | 'rectangle';
 };
 
 interface GISMapProps {
@@ -577,73 +577,99 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     return [sumX / coords.length, sumY / coords.length];
   };
 
-  // Handle polygon selection mode
+  // Handle rectangle selection mode
   useEffect(() => {
-    if (!map.current || drawMode.type !== 'select' || drawMode.selectMode !== 'polygon') return;
+    if (!map.current || drawMode.type !== 'select' || drawMode.selectMode !== 'rectangle') return;
 
-    let selectionPolygon: number[][] = [];
-    let markers: maplibregl.Marker[] = [];
+    let startPoint: { lng: number; lat: number } | null = null;
+    let isDragging = false;
+    const canvas = map.current.getCanvasContainer();
 
-    const handleClick = (e: maplibregl.MapMouseEvent) => {
-      const coords = [e.lngLat.lng, e.lngLat.lat];
-      selectionPolygon.push(coords);
+    const handleMouseDown = (e: maplibregl.MapMouseEvent) => {
+      startPoint = e.lngLat;
+      isDragging = true;
+      canvas.style.cursor = 'crosshair';
+    };
 
-      // Add marker at click point
-      const marker = new maplibregl.Marker({ color: '#ef4444' })
-        .setLngLat(e.lngLat)
-        .addTo(map.current!);
-      markers.push(marker);
+    const handleMouseMove = (e: maplibregl.MapMouseEvent) => {
+      if (!isDragging || !startPoint) return;
 
-      // Draw selection polygon lines
-      if (selectionPolygon.length > 1) {
-        const sourceId = 'selection-polygon';
-        const layerId = 'selection-polygon-line';
+      const currentPoint = e.lngLat;
+      const bounds = [
+        [Math.min(startPoint.lng, currentPoint.lng), Math.min(startPoint.lat, currentPoint.lat)],
+        [Math.max(startPoint.lng, currentPoint.lng), Math.max(startPoint.lat, currentPoint.lat)]
+      ];
 
-        if (map.current!.getSource(sourceId)) {
-          (map.current!.getSource(sourceId) as maplibregl.GeoJSONSource).setData({
-            type: 'Feature',
-            geometry: {
-              type: 'LineString',
-              coordinates: selectionPolygon
-            },
-            properties: {}
-          });
-        } else {
-          map.current!.addSource(sourceId, {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              geometry: {
-                type: 'LineString',
-                coordinates: selectionPolygon
-              },
-              properties: {}
-            }
-          });
+      // Draw selection rectangle
+      const sourceId = 'selection-rectangle';
+      const layerId = 'selection-rectangle-fill';
+      const lineLayerId = 'selection-rectangle-line';
 
-          map.current!.addLayer({
-            id: layerId,
-            type: 'line',
-            source: sourceId,
-            paint: {
-              'line-color': '#ef4444',
-              'line-width': 2,
-              'line-dasharray': [2, 2]
-            }
-          });
-        }
+      const rectangleGeoJSON = {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[
+            [bounds[0][0], bounds[0][1]],
+            [bounds[1][0], bounds[0][1]],
+            [bounds[1][0], bounds[1][1]],
+            [bounds[0][0], bounds[1][1]],
+            [bounds[0][0], bounds[0][1]]
+          ]]
+        },
+        properties: {}
+      };
+
+      if (map.current!.getSource(sourceId)) {
+        (map.current!.getSource(sourceId) as maplibregl.GeoJSONSource).setData(rectangleGeoJSON);
+      } else {
+        map.current!.addSource(sourceId, {
+          type: 'geojson',
+          data: rectangleGeoJSON
+        });
+
+        map.current!.addLayer({
+          id: layerId,
+          type: 'fill',
+          source: sourceId,
+          paint: {
+            'fill-color': '#3b82f6',
+            'fill-opacity': 0.1
+          }
+        });
+
+        map.current!.addLayer({
+          id: lineLayerId,
+          type: 'line',
+          source: sourceId,
+          paint: {
+            'line-color': '#3b82f6',
+            'line-width': 2,
+            'line-dasharray': [2, 2]
+          }
+        });
       }
     };
 
-    const handleDblClick = (e: maplibregl.MapMouseEvent) => {
-      e.preventDefault();
+    const handleMouseUp = (e: maplibregl.MapMouseEvent) => {
+      if (!isDragging || !startPoint) return;
 
-      if (selectionPolygon.length < 3) return;
+      const currentPoint = e.lngLat;
+      const bounds = [
+        [Math.min(startPoint.lng, currentPoint.lng), Math.min(startPoint.lat, currentPoint.lat)],
+        [Math.max(startPoint.lng, currentPoint.lng), Math.max(startPoint.lat, currentPoint.lat)]
+      ];
 
-      // Close the polygon
-      selectionPolygon.push(selectionPolygon[0]);
+      // Create polygon from rectangle bounds for selection
+      const selectionPolygon = [
+        [bounds[0][0], bounds[0][1]],
+        [bounds[1][0], bounds[0][1]],
+        [bounds[1][0], bounds[1][1]],
+        [bounds[0][0], bounds[1][1]],
+        [bounds[0][0], bounds[0][1]]
+      ];
 
-      // Find features within polygon
+      // Find features within rectangle
       const selectedByLayer = new Map<string, number[]>();
 
       layers.forEach(layer => {
@@ -739,12 +765,12 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
       // Notify parent component to open attribute table
       onFeatureSelect?.(selectedByLayer);
 
-      // Clean up selection polygon
-      if (map.current!.getSource('selection-polygon')) {
-        map.current!.removeLayer('selection-polygon-line');
-        map.current!.removeSource('selection-polygon');
+      // Clean up selection rectangle
+      if (map.current!.getSource('selection-rectangle')) {
+        map.current!.removeLayer('selection-rectangle-line');
+        map.current!.removeLayer('selection-rectangle-fill');
+        map.current!.removeSource('selection-rectangle');
       }
-      markers.forEach(m => m.remove());
 
       // Close any active popup
       if (activePopup.current) {
@@ -752,26 +778,28 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
         activePopup.current = null;
       }
 
-      onFeatureSelect?.(selectedByLayer);
-
-      // Reset for next selection
-      selectionPolygon = [];
-      markers = [];
+      // Reset state
+      startPoint = null;
+      isDragging = false;
+      canvas.style.cursor = 'default';
     };
 
-    map.current.on('click', handleClick);
-    map.current.on('dblclick', handleDblClick);
+    map.current.on('mousedown', handleMouseDown);
+    map.current.on('mousemove', handleMouseMove);
+    map.current.on('mouseup', handleMouseUp);
 
     return () => {
-      map.current?.off('click', handleClick);
-      map.current?.off('dblclick', handleDblClick);
+      map.current?.off('mousedown', handleMouseDown);
+      map.current?.off('mousemove', handleMouseMove);
+      map.current?.off('mouseup', handleMouseUp);
       
       // Clean up
-      if (map.current?.getSource('selection-polygon')) {
-        map.current.removeLayer('selection-polygon-line');
-        map.current.removeSource('selection-polygon');
+      if (map.current?.getSource('selection-rectangle')) {
+        map.current.removeLayer('selection-rectangle-line');
+        map.current.removeLayer('selection-rectangle-fill');
+        map.current.removeSource('selection-rectangle');
       }
-      markers.forEach(m => m.remove());
+      canvas.style.cursor = 'default';
     };
   }, [drawMode, layers, onFeatureSelect]);
 
@@ -888,7 +916,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
         ref={mapContainer} 
         className="absolute inset-0 w-full h-full"
         style={{ 
-          cursor: drawMode.type === 'select' && drawMode.selectMode === 'polygon' 
+          cursor: drawMode.type === 'select' && drawMode.selectMode === 'rectangle' 
             ? 'crosshair' 
             : drawMode.type === 'select' 
             ? 'pointer'

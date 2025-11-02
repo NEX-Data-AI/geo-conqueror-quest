@@ -10,7 +10,7 @@ const GIS = () => {
   const [layers, setLayers] = useState<GISLayer[]>([]);
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
   const [activeLayer, setActiveLayer] = useState<string | null>(null);
-  const [drawMode, setDrawMode] = useState<DrawingMode>({ type: 'select', purpose: 'feature', selectMode: 'click' });
+  const [drawMode, setDrawMode] = useState<DrawingMode>({ type: 'select', purpose: 'feature', selectMode: 'rectangle' });
   const [showAttributeTable, setShowAttributeTable] = useState(false);
   const [selectedFeatures, setSelectedFeatures] = useState<Map<string, number[]>>(new Map());
   const clearSelectionRef = useRef<() => void>(() => {});
@@ -27,7 +27,7 @@ const GIS = () => {
         onLayersChange={setLayers}
       />
 
-      {/* Main Map Area - Flex container */}
+      {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
         <Toolbar
@@ -43,38 +43,41 @@ const GIS = () => {
           }}
         />
 
-        {/* Map */}
-        <div className="flex-1 relative overflow-hidden">
-          <GISMap
-            layers={layers}
-            selectedLayer={selectedLayer}
-            activeLayer={activeLayer}
-            drawMode={drawMode}
-            onLayersChange={setLayers}
-            onFeatureSelect={(selections) => {
-              setSelectedFeatures(selections);
-              setShowAttributeTable(true);
-            }}
-            onClearSelectionRef={clearSelectionRef}
-          />
-        </div>
-
-        {/* Attribute Table - Full width at bottom */}
-        {showAttributeTable && (
-          <div className="h-64 border-t">
-            <AttributeTable
+        {/* Map and Attribute Table */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Map takes remaining space */}
+          <div className={showAttributeTable ? "flex-1 relative overflow-hidden" : "h-full relative overflow-hidden"}>
+            <GISMap
               layers={layers}
-              selectedFeatures={selectedFeatures}
-              onClose={() => {
-                setShowAttributeTable(false);
-                setSelectedFeatures(new Map());
+              selectedLayer={selectedLayer}
+              activeLayer={activeLayer}
+              drawMode={drawMode}
+              onLayersChange={setLayers}
+              onFeatureSelect={(selections) => {
+                setSelectedFeatures(selections);
+                setShowAttributeTable(true);
               }}
-              onUpdate={(updatedLayer) => {
-                setLayers(layers.map(l => l.id === updatedLayer.id ? updatedLayer : l));
-              }}
+              onClearSelectionRef={clearSelectionRef}
             />
           </div>
-        )}
+
+          {/* Attribute Table - Full width at bottom when open */}
+          {showAttributeTable && (
+            <div className="h-64 border-t w-full">
+              <AttributeTable
+                layers={layers}
+                selectedFeatures={selectedFeatures}
+                onClose={() => {
+                  setShowAttributeTable(false);
+                  setSelectedFeatures(new Map());
+                }}
+                onUpdate={(updatedLayer) => {
+                  setLayers(layers.map(l => l.id === updatedLayer.id ? updatedLayer : l));
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

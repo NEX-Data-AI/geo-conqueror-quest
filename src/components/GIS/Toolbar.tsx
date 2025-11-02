@@ -13,7 +13,7 @@ import shp from 'shpjs';
 export type DrawingMode = {
   type: 'point' | 'line' | 'polygon' | 'select' | null;
   purpose: 'annotation' | 'feature';
-  selectMode?: 'click' | 'polygon';
+  selectMode?: 'click' | 'rectangle';
 };
 
 interface ToolbarProps {
@@ -124,7 +124,7 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
     setShowModeSelector(true);
   };
 
-  const handleSelectMode = (mode: 'click' | 'polygon') => {
+  const handleSelectMode = (mode: 'click' | 'rectangle') => {
     onDrawModeChange({ type: 'select', purpose: 'feature', selectMode: mode });
     setShowModeSelector(false);
   };
@@ -154,7 +154,7 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
               size="sm"
               className="z-[999] relative"
             >
-              {drawMode.selectMode === 'polygon' ? (
+              {drawMode.selectMode === 'rectangle' ? (
                 <Square className="h-4 w-4 mr-2" />
               ) : (
                 <MousePointer className="h-4 w-4 mr-2" />
@@ -174,12 +174,12 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
                 Click Selection
               </Button>
               <Button
-                variant={drawMode.selectMode === 'polygon' ? 'default' : 'outline'}
+                variant={drawMode.selectMode === 'rectangle' ? 'default' : 'outline'}
                 className="w-full justify-start"
-                onClick={() => handleSelectMode('polygon')}
+                onClick={() => handleSelectMode('rectangle')}
               >
                 <Square className="h-4 w-4 mr-2" />
-                Polygon Selection
+                Rectangle Selection
               </Button>
             </div>
           </PopoverContent>
