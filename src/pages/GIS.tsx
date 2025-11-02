@@ -14,7 +14,7 @@ const GIS = () => {
   const [selectedFeatures, setSelectedFeatures] = useState<Map<string, number[]>>(new Map());
 
   return (
-    <div className="flex h-screen w-full bg-background">
+    <div className="flex h-screen w-full bg-background overflow-hidden">
       {/* Legend - Left Sidebar */}
       <Legend
         layers={layers}
@@ -26,7 +26,7 @@ const GIS = () => {
       />
 
       {/* Main Map Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
         <Toolbar
           drawMode={drawMode}
@@ -37,31 +37,35 @@ const GIS = () => {
         />
 
         {/* Map */}
-        <GISMap
-          layers={layers}
-          selectedLayer={selectedLayer}
-          activeLayer={activeLayer}
-          drawMode={drawMode}
-          onLayersChange={setLayers}
-          onFeatureSelect={(selections) => {
-            setSelectedFeatures(selections);
-            setShowAttributeTable(true);
-          }}
-        />
+        <div className="flex-1 relative">
+          <GISMap
+            layers={layers}
+            selectedLayer={selectedLayer}
+            activeLayer={activeLayer}
+            drawMode={drawMode}
+            onLayersChange={setLayers}
+            onFeatureSelect={(selections) => {
+              setSelectedFeatures(selections);
+              setShowAttributeTable(true);
+            }}
+          />
+        </div>
 
         {/* Attribute Table - Bottom Panel */}
         {showAttributeTable && (
-          <AttributeTable
-            layers={layers}
-            selectedFeatures={selectedFeatures}
-            onClose={() => {
-              setShowAttributeTable(false);
-              setSelectedFeatures(new Map());
-            }}
-            onUpdate={(updatedLayer) => {
-              setLayers(layers.map(l => l.id === updatedLayer.id ? updatedLayer : l));
-            }}
-          />
+          <div className="h-80 border-t">
+            <AttributeTable
+              layers={layers}
+              selectedFeatures={selectedFeatures}
+              onClose={() => {
+                setShowAttributeTable(false);
+                setSelectedFeatures(new Map());
+              }}
+              onUpdate={(updatedLayer) => {
+                setLayers(layers.map(l => l.id === updatedLayer.id ? updatedLayer : l));
+              }}
+            />
+          </div>
         )}
       </div>
     </div>

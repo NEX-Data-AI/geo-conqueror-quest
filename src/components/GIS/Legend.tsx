@@ -86,7 +86,7 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 h-0">
         <div className="p-2 space-y-2">
           {layers.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground text-sm">
@@ -238,22 +238,8 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
                     }}
                   >
                     <Settings className="h-3 w-3" />
-                    <span className="text-xs">Edit Style</span>
+                    <span className="text-xs">Edit</span>
                   </Button>
-                </div>
-
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs text-muted-foreground">Opacity</span>
-                  <Slider
-                    value={[layer.opacity * 100]}
-                    min={0}
-                    max={100}
-                    step={1}
-                    className="flex-1"
-                    onValueChange={(value) => updateOpacity(layer.id, value[0] / 100)}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <span className="text-xs w-10 text-right">{Math.round(layer.opacity * 100)}%</span>
                 </div>
 
                 <div className="flex gap-2 text-xs text-muted-foreground mt-2">

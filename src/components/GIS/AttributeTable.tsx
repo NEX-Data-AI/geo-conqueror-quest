@@ -17,9 +17,17 @@ interface AttributeTableProps {
 const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: AttributeTableProps) => {
   const [editingCell, setEditingCell] = useState<{ layerId: string; featureIndex: number; property: string } | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [filterMode, setFilterMode] = useState<'all' | 'selected'>('selected');
+  const [filterMode, setFilterMode] = useState<Map<string, 'all' | 'selected'>>(new Map());
 
-  const layersWithSelection = layers.filter(l => selectedFeatures.has(l.id) || selectedFeatures.size === 0);
+  const layersWithSelection = layers.filter(l => selectedFeatures.has(l.id) && selectedFeatures.get(l.id)!.length > 0);
+  const displayLayers = layersWithSelection.length > 0 ? layersWithSelection : layers;
+
+  const getFilterMode = (layerId: string) => filterMode.get(layerId) || 'selected';
+  const setLayerFilterMode = (layerId: string, mode: 'all' | 'selected') => {
+    const newMap = new Map(filterMode);
+    newMap.set(layerId, mode);
+    setFilterMode(newMap);
+  };
 
   const startEdit = (layerId: string, featureIndex: number, property: string, currentValue: any) => {
     setEditingCell({ layerId, featureIndex, property });
@@ -76,7 +84,8 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
 
   const renderLayerTable = (layer: GISLayer) => {
     const selectedIndices = selectedFeatures.get(layer.id) || [];
-    const features = filterMode === 'selected' && selectedIndices.length > 0
+    const currentFilterMode = getFilterMode(layer.id);
+    const features = currentFilterMode === 'selected' && selectedIndices.length > 0
       ? layer.data.features.filter((_, i) => selectedIndices.includes(i))
       : layer.data.features;
 
@@ -102,7 +111,8 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
           </thead>
           <tbody>
             {features.map((feature, idx) => {
-              const originalIndex = filterMode === 'selected' 
+              const currentFilterMode = getFilterMode(layer.id);
+              const originalIndex = currentFilterMode === 'selected' 
                 ? layer.data.features.indexOf(feature)
                 : idx;
 
@@ -167,57 +177,65 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
     );
   };
 
-  if (layersWithSelection.length === 0) {
-    return (
-      <div className="h-80 border-t bg-card flex flex-col">
-        <div className="flex items-center justify-between p-3 border-b bg-muted/50">
-          <h3 className="font-bold">Attributes</h3>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          No features selected
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-80 border-t bg-card flex flex-col">
+    <div className="h-full border-t bg-card flex flex-col">
       <div className="flex items-center justify-between p-3 border-b bg-muted/50">
-        <div className="flex items-center gap-3">
-          <h3 className="font-bold">Attributes</h3>
-          <Tabs value={filterMode} onValueChange={(v) => setFilterMode(v as 'all' | 'selected')}>
-            <TabsList className="h-8">
-              <TabsTrigger value="all" className="text-xs">All Features</TabsTrigger>
-              <TabsTrigger value="selected" className="text-xs">Selected Only</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+        <h3 className="font-bold">Attributes</h3>
         <Button variant="ghost" size="sm" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
       </div>
 
-      {layersWithSelection.length === 1 ? (
-        renderLayerTable(layersWithSelection[0])
+      {displayLayers.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          No features available
+        </div>
+      ) : displayLayers.length === 1 ? (
+        <div className="flex-1 flex flex-col">
+          <div className="p-2 border-b flex items-center justify-between bg-muted/30">
+            <span className="text-sm font-medium">{displayLayers[0].name}</span>
+            <Tabs 
+              value={getFilterMode(displayLayers[0].id)} 
+              onValueChange={(v) => setLayerFilterMode(displayLayers[0].id, v as 'all' | 'selected')}
+            >
+              <TabsList className="h-8">
+                <TabsTrigger value="all" className="text-xs">All Features</TabsTrigger>
+                <TabsTrigger value="selected" className="text-xs">Selected Only</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          {renderLayerTable(displayLayers[0])}
+        </div>
       ) : (
-        <Tabs defaultValue={layersWithSelection[0].id} className="flex-1 flex flex-col">
+        <Tabs defaultValue={displayLayers[0].id} className="flex-1 flex flex-col">
           <TabsList className="mx-3 mt-2">
-            {layersWithSelection.map(layer => (
-              <TabsTrigger key={layer.id} value={layer.id} className="text-xs">
-                {layer.name}
-                <span className="ml-2 text-muted-foreground">
-                  ({filterMode === 'selected' && selectedFeatures.get(layer.id)?.length 
-                    ? selectedFeatures.get(layer.id)!.length 
-                    : layer.data.features.length})
-                </span>
-              </TabsTrigger>
-            ))}
+            {displayLayers.map(layer => {
+              const selectedIndices = selectedFeatures.get(layer.id) || [];
+              const currentFilterMode = getFilterMode(layer.id);
+              const count = currentFilterMode === 'selected' && selectedIndices.length > 0
+                ? selectedIndices.length 
+                : layer.data.features.length;
+              return (
+                <TabsTrigger key={layer.id} value={layer.id} className="text-xs">
+                  {layer.name}
+                  <span className="ml-2 text-muted-foreground">({count})</span>
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
-          {layersWithSelection.map(layer => (
+          {displayLayers.map(layer => (
             <TabsContent key={layer.id} value={layer.id} className="flex-1 flex flex-col mt-0">
+              <div className="p-2 border-b flex justify-end bg-muted/30">
+                <Tabs 
+                  value={getFilterMode(layer.id)} 
+                  onValueChange={(v) => setLayerFilterMode(layer.id, v as 'all' | 'selected')}
+                >
+                  <TabsList className="h-8">
+                    <TabsTrigger value="all" className="text-xs">All Features</TabsTrigger>
+                    <TabsTrigger value="selected" className="text-xs">Selected Only</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
               {renderLayerTable(layer)}
             </TabsContent>
           ))}
