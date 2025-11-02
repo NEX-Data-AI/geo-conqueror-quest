@@ -4,6 +4,7 @@ import Legend from '@/components/GIS/Legend';
 import Toolbar from '@/components/GIS/Toolbar';
 import AttributeTable from '@/components/GIS/AttributeTable';
 import { GISLayer } from '@/types/gis';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 
 const GIS = () => {
   const [layers, setLayers] = useState<GISLayer[]>([]);
@@ -36,33 +37,48 @@ const GIS = () => {
           onImportData={(newLayers) => setLayers([...layers, ...newLayers])}
         />
 
-        {/* Map */}
-        <div className="flex-1 relative">
-          <GISMap
-            layers={layers}
-            selectedLayer={selectedLayer}
-            activeLayer={activeLayer}
-            drawMode={drawMode}
-            onLayersChange={setLayers}
-            onFeatureSelect={(selections) => {
-              setSelectedFeatures(selections);
-              setShowAttributeTable(true);
-            }}
-          />
-        </div>
-
-        {/* Attribute Table - Bottom Panel */}
-        {showAttributeTable && (
-          <div className="h-80 border-t">
-            <AttributeTable
+        {/* Map and Attribute Table with Resizable Panels */}
+        {showAttributeTable ? (
+          <ResizablePanelGroup direction="vertical" className="flex-1">
+            <ResizablePanel defaultSize={65} minSize={30}>
+              <GISMap
+                layers={layers}
+                selectedLayer={selectedLayer}
+                activeLayer={activeLayer}
+                drawMode={drawMode}
+                onLayersChange={setLayers}
+                onFeatureSelect={(selections) => {
+                  setSelectedFeatures(selections);
+                  setShowAttributeTable(true);
+                }}
+              />
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={35} minSize={20}>
+              <AttributeTable
+                layers={layers}
+                selectedFeatures={selectedFeatures}
+                onClose={() => {
+                  setShowAttributeTable(false);
+                  setSelectedFeatures(new Map());
+                }}
+                onUpdate={(updatedLayer) => {
+                  setLayers(layers.map(l => l.id === updatedLayer.id ? updatedLayer : l));
+                }}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <div className="flex-1 relative">
+            <GISMap
               layers={layers}
-              selectedFeatures={selectedFeatures}
-              onClose={() => {
-                setShowAttributeTable(false);
-                setSelectedFeatures(new Map());
-              }}
-              onUpdate={(updatedLayer) => {
-                setLayers(layers.map(l => l.id === updatedLayer.id ? updatedLayer : l));
+              selectedLayer={selectedLayer}
+              activeLayer={activeLayer}
+              drawMode={drawMode}
+              onLayersChange={setLayers}
+              onFeatureSelect={(selections) => {
+                setSelectedFeatures(selections);
+                setShowAttributeTable(true);
               }}
             />
           </div>

@@ -216,12 +216,14 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
               }
             });
             map.current!.on('mouseenter', `${layer.id}-fill`, () => {
-              if (drawMode.type === 'select') {
+              if (drawMode.type === 'select' && drawMode.selectMode === 'click') {
                 map.current!.getCanvas().style.cursor = 'pointer';
               }
             });
             map.current!.on('mouseleave', `${layer.id}-fill`, () => {
-              map.current!.getCanvas().style.cursor = '';
+              if (drawMode.type === 'select' && drawMode.selectMode === 'click') {
+                map.current!.getCanvas().style.cursor = 'default';
+              }
             });
           }
         } else if (layer.type === 'line') {

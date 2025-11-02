@@ -96,17 +96,17 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
     const propertyKeys = Array.from(allProperties);
 
     return (
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-auto">
         <table className="w-full text-sm">
-          <thead className="bg-muted sticky top-0">
+          <thead className="bg-muted sticky top-0 z-10">
             <tr>
-              <th className="p-2 text-left font-medium w-12">#</th>
+              <th className="p-2 text-left font-medium w-12 sticky left-0 bg-muted z-20">#</th>
               {propertyKeys.map(key => (
-                <th key={key} className="p-2 text-left font-medium min-w-32">
+                <th key={key} className="p-2 text-left font-medium min-w-32 whitespace-nowrap">
                   {key}
                 </th>
               ))}
-              <th className="p-2 text-left font-medium w-20">Actions</th>
+              <th className="p-2 text-left font-medium w-20 sticky right-0 bg-muted z-20">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -118,7 +118,7 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
 
               return (
                 <tr key={originalIndex} className="border-b hover:bg-muted/50">
-                  <td className="p-2 text-muted-foreground">{originalIndex + 1}</td>
+                  <td className="p-2 text-muted-foreground sticky left-0 bg-background z-10">{originalIndex + 1}</td>
                   {propertyKeys.map(property => {
                     const value = feature.properties?.[property];
                     const isEditing = editingCell?.layerId === layer.id &&
@@ -128,7 +128,7 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
                     return (
                       <td
                         key={property}
-                        className="p-2 cursor-pointer hover:bg-muted/30"
+                        className="p-2 cursor-pointer hover:bg-muted/30 whitespace-nowrap"
                         onClick={() => !isEditing && startEdit(layer.id, originalIndex, property, value)}
                       >
                         {isEditing ? (
@@ -158,7 +158,7 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
                       </td>
                     );
                   })}
-                  <td className="p-2">
+                  <td className="p-2 sticky right-0 bg-background z-10">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -173,7 +173,7 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
             })}
           </tbody>
         </table>
-      </ScrollArea>
+      </div>
     );
   };
 
