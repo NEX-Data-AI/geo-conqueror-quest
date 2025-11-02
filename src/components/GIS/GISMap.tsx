@@ -27,6 +27,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
   const map = useRef<maplibregl.Map | null>(null);
   const [basemap, setBasemap] = useState<'street' | 'satellite' | 'terrain'>('street');
   const [isChangingBasemap, setIsChangingBasemap] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const drawingPoints = useRef<[number, number][]>([]);
   const drawingMarkers = useRef<maplibregl.Marker[]>([]);
   const activePopup = useRef<maplibregl.Popup | null>(null);
@@ -92,6 +93,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     // Wait for map to load before setting as ready
     map.current.on('load', () => {
       console.log('Map loaded');
+      setMapLoaded(true);
     });
 
     return () => {
@@ -99,9 +101,9 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     };
   }, []);
 
-  // Change basemap
+  // Change basemap (only after initial map load)
   useEffect(() => {
-    if (!map.current) return;
+    if (!map.current || !mapLoaded) return;
     
     setIsChangingBasemap(true);
     
@@ -112,7 +114,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     });
     
     map.current.setStyle(basemapStyles[basemap]);
-  }, [basemap]);
+  }, [basemap, mapLoaded]);
 
   // Render layers
   useEffect(() => {
@@ -395,12 +397,12 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             <Button 
               variant="default" 
               size="icon"
-              className="h-8 w-8 rounded shadow-lg bg-card border hover:bg-muted"
+              className="h-9 w-9 rounded-md shadow-lg bg-background border-2 border-primary/20 hover:bg-muted hover:border-primary"
             >
-              <Layers className="h-4 w-4" />
+              <Layers className="h-5 w-5 text-foreground" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40 bg-card border-2 z-[1000]">
+          <DropdownMenuContent align="start" className="w-40 bg-background border-2 z-[1000]">
             <DropdownMenuItem 
               onClick={() => setBasemap('street')}
               className={basemap === 'street' ? 'bg-primary/10 font-medium' : ''}
