@@ -215,7 +215,7 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
                 {/* Selectable Control & Edit Button */}
                 <div className="flex items-center gap-2 mt-2 mb-2">
                   <div 
-                    className="flex items-center gap-2 cursor-pointer flex-1"
+                    className="flex items-center gap-2 cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleSelectable(layer.id);
@@ -231,13 +231,12 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1"
+                    className="h-7 px-2"
                     onClick={(e) => {
                       e.stopPropagation();
                       setEditingStyleLayer(layer);
                     }}
                   >
-                    <Settings className="h-3 w-3" />
                     <span className="text-xs">Edit</span>
                   </Button>
                 </div>

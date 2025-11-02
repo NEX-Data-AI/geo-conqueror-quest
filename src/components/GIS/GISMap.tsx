@@ -96,7 +96,16 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
   // Change basemap
   useEffect(() => {
     if (!map.current) return;
-    map.current.setStyle(basemapStyles[basemap]);
+    
+    const changeStyle = () => {
+      if (map.current?.isStyleLoaded()) {
+        map.current.setStyle(basemapStyles[basemap]);
+      } else {
+        setTimeout(changeStyle, 100);
+      }
+    };
+    
+    changeStyle();
   }, [basemap]);
 
   // Render layers
