@@ -1,21 +1,32 @@
-import { Upload, Download, Pencil, MousePointer, Circle, Minus, Square, Table, Map } from 'lucide-react';
+import { Upload, MousePointer, Circle, Minus, Square, Table, StickyNote, MapPin, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { GISLayer } from '@/types/gis';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
 // @ts-ignore
 import shp from 'shpjs';
 
+export type DrawingMode = {
+  type: 'point' | 'line' | 'polygon' | null;
+  purpose: 'annotation' | 'feature';
+};
+
 interface ToolbarProps {
-  drawMode: 'point' | 'line' | 'polygon' | null;
-  onDrawModeChange: (mode: 'point' | 'line' | 'polygon' | null) => void;
+  drawMode: DrawingMode;
+  layers: GISLayer[];
+  onDrawModeChange: (mode: DrawingMode) => void;
   onToggleAttributeTable: () => void;
   onImportData: (layers: GISLayer[]) => void;
 }
 
-const Toolbar = ({ drawMode, onDrawModeChange, onToggleAttributeTable, onImportData }: ToolbarProps) => {
+const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, onImportData }: ToolbarProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showModeSelector, setShowModeSelector] = useState(false);
+  const [pendingDrawType, setPendingDrawType] = useState<'point' | 'line' | 'polygon' | null>(null);
 
   const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -106,13 +117,33 @@ const Toolbar = ({ drawMode, onDrawModeChange, onToggleAttributeTable, onImportD
     return 'point';
   };
 
+  const handleDrawClick = (type: 'point' | 'line' | 'polygon') => {
+    setPendingDrawType(type);
+    setShowModeSelector(true);
+  };
+
+  const handleModeSelect = (purpose: 'annotation' | 'feature', targetLayerId?: string) => {
+    if (!pendingDrawType) return;
+    
+    onDrawModeChange({ 
+      type: pendingDrawType, 
+      purpose,
+      ...(purpose === 'feature' && targetLayerId && { targetLayerId })
+    } as any);
+    setShowModeSelector(false);
+    setPendingDrawType(null);
+  };
+
+  const isDrawActive = (type: 'point' | 'line' | 'polygon') => 
+    drawMode.type === type;
+
   return (
     <div className="h-14 border-b bg-card flex items-center justify-between px-4">
       <div className="flex items-center gap-2">
         <Button
-          variant={drawMode === null ? 'default' : 'outline'}
+          variant={drawMode.type === null ? 'default' : 'outline'}
           size="sm"
-          onClick={() => onDrawModeChange(null)}
+          onClick={() => onDrawModeChange({ type: null, purpose: 'feature' })}
         >
           <MousePointer className="h-4 w-4 mr-2" />
           Select
@@ -121,27 +152,27 @@ const Toolbar = ({ drawMode, onDrawModeChange, onToggleAttributeTable, onImportD
         <div className="h-8 w-px bg-border mx-1" />
 
         <Button
-          variant={drawMode === 'point' ? 'default' : 'outline'}
+          variant={isDrawActive('point') ? 'default' : 'outline'}
           size="sm"
-          onClick={() => onDrawModeChange(drawMode === 'point' ? null : 'point')}
+          onClick={() => handleDrawClick('point')}
         >
           <Circle className="h-4 w-4 mr-2" />
           Point
         </Button>
 
         <Button
-          variant={drawMode === 'line' ? 'default' : 'outline'}
+          variant={isDrawActive('line') ? 'default' : 'outline'}
           size="sm"
-          onClick={() => onDrawModeChange(drawMode === 'line' ? null : 'line')}
+          onClick={() => handleDrawClick('line')}
         >
           <Minus className="h-4 w-4 mr-2" />
           Line
         </Button>
 
         <Button
-          variant={drawMode === 'polygon' ? 'default' : 'outline'}
+          variant={isDrawActive('polygon') ? 'default' : 'outline'}
           size="sm"
-          onClick={() => onDrawModeChange(drawMode === 'polygon' ? null : 'polygon')}
+          onClick={() => handleDrawClick('polygon')}
         >
           <Square className="h-4 w-4 mr-2" />
           Polygon
@@ -177,6 +208,86 @@ const Toolbar = ({ drawMode, onDrawModeChange, onToggleAttributeTable, onImportD
           Import
         </Button>
       </div>
+
+      {/* Mode Selector Popover */}
+      <Popover open={showModeSelector} onOpenChange={setShowModeSelector}>
+        <PopoverTrigger asChild>
+          <div className="hidden" />
+        </PopoverTrigger>
+        <PopoverContent className="w-80 bg-card border-2 z-50" align="center">
+          <div className="space-y-4">
+            <h3 className="font-semibold text-sm">Choose Drawing Purpose</h3>
+            
+            {/* Annotation Option */}
+            <div>
+              <Button
+                variant="outline"
+                className="w-full justify-start h-auto p-3"
+                onClick={() => handleModeSelect('annotation')}
+              >
+                <div className="flex items-start gap-3">
+                  <StickyNote className="h-5 w-5 mt-0.5 text-primary" />
+                  <div className="text-left">
+                    <div className="font-medium">Annotation</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Visual overlay for notes and drawings (no geodata)
+                    </div>
+                  </div>
+                </div>
+              </Button>
+            </div>
+
+            {/* Feature/Geodata Option */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Create Geodata Feature</Label>
+              
+              {/* Add to New Layer */}
+              <Button
+                variant="outline"
+                className="w-full justify-start h-auto p-3"
+                onClick={() => handleModeSelect('feature')}
+              >
+                <div className="flex items-start gap-3">
+                  <Plus className="h-5 w-5 mt-0.5 text-primary" />
+                  <div className="text-left">
+                    <div className="font-medium">New Layer</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Create new layer for this feature
+                    </div>
+                  </div>
+                </div>
+              </Button>
+
+              {/* Add to Existing Layer */}
+              {layers.filter(l => l.type === pendingDrawType).length > 0 && (
+                <div className="border rounded-md p-2 bg-muted/30">
+                  <Label className="text-xs text-muted-foreground mb-2 block">
+                    Or add to existing layer:
+                  </Label>
+                  <ScrollArea className="max-h-32">
+                    <div className="space-y-1">
+                      {layers
+                        .filter(l => l.type === pendingDrawType)
+                        .map(layer => (
+                          <Button
+                            key={layer.id}
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start h-auto py-2"
+                            onClick={() => handleModeSelect('feature', layer.id)}
+                          >
+                            <MapPin className="h-4 w-4 mr-2 text-primary" />
+                            <span className="text-sm truncate">{layer.name}</span>
+                          </Button>
+                        ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 };

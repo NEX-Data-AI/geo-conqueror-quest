@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import GISMap from '@/components/GIS/GISMap';
-import LayerPanel from '@/components/GIS/LayerPanel';
+import GISMap, { DrawingMode } from '@/components/GIS/GISMap';
+import Legend from '@/components/GIS/Legend';
 import Toolbar from '@/components/GIS/Toolbar';
 import AttributeTable from '@/components/GIS/AttributeTable';
 import { GISLayer } from '@/types/gis';
@@ -8,13 +8,13 @@ import { GISLayer } from '@/types/gis';
 const GIS = () => {
   const [layers, setLayers] = useState<GISLayer[]>([]);
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
-  const [drawMode, setDrawMode] = useState<'point' | 'line' | 'polygon' | null>(null);
+  const [drawMode, setDrawMode] = useState<DrawingMode>({ type: null, purpose: 'feature' });
   const [showAttributeTable, setShowAttributeTable] = useState(false);
 
   return (
     <div className="flex h-screen w-full bg-background">
-      {/* Layer Panel - Left Sidebar */}
-      <LayerPanel
+      {/* Legend - Left Sidebar */}
+      <Legend
         layers={layers}
         selectedLayer={selectedLayer}
         onLayerSelect={setSelectedLayer}
@@ -26,6 +26,7 @@ const GIS = () => {
         {/* Toolbar */}
         <Toolbar
           drawMode={drawMode}
+          layers={layers}
           onDrawModeChange={setDrawMode}
           onToggleAttributeTable={() => setShowAttributeTable(!showAttributeTable)}
           onImportData={(newLayers) => setLayers([...layers, ...newLayers])}

@@ -8,14 +8,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { GISLayer } from '@/types/gis';
 import { useState } from 'react';
 
-interface LayerPanelProps {
+interface LegendProps {
   layers: GISLayer[];
   selectedLayer: string | null;
   onLayerSelect: (id: string) => void;
   onLayersChange: (layers: GISLayer[]) => void;
 }
 
-const LayerPanel = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: LayerPanelProps) => {
+const Legend = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: LegendProps) => {
   const [styleOpen, setStyleOpen] = useState<Record<string, boolean>>({});
 
   const toggleVisibility = (id: string) => {
@@ -58,7 +58,7 @@ const LayerPanel = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: La
       <div className="p-4 border-b bg-muted/50">
         <div className="flex items-center gap-2">
           <Layers className="h-5 w-5 text-primary" />
-          <h2 className="font-bold text-lg">Layers</h2>
+          <h2 className="font-bold text-lg">Legend</h2>
         </div>
       </div>
 
@@ -275,4 +275,4 @@ const LayerPanel = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: La
   );
 };
 
-export default LayerPanel;
+export default Legend;

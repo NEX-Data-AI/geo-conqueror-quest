@@ -6,10 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Map as MapIcon, Layers } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
+export type DrawingMode = {
+  type: 'point' | 'line' | 'polygon' | null;
+  purpose: 'annotation' | 'feature';
+  targetLayerId?: string;
+};
+
 interface GISMapProps {
   layers: GISLayer[];
   selectedLayer: string | null;
-  drawMode: 'point' | 'line' | 'polygon' | null;
+  drawMode: DrawingMode;
   onLayersChange: (layers: GISLayer[]) => void;
   onFeatureSelect?: (layerId: string, featureIndex: number) => void;
 }
@@ -214,30 +220,31 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
     if (!map.current) return;
 
     const handleMapClick = (e: maplibregl.MapMouseEvent) => {
-      if (!drawMode) return;
+      if (!drawMode.type) return;
 
       const coords: [number, number] = [e.lngLat.lng, e.lngLat.lat];
       drawingPoints.current.push(coords);
 
-      // Add marker
-      const marker = new maplibregl.Marker({ color: '#f59e0b' })
+      // Add marker with color based on purpose
+      const markerColor = drawMode.purpose === 'annotation' ? '#10b981' : '#f59e0b';
+      const marker = new maplibregl.Marker({ color: markerColor })
         .setLngLat(coords)
         .addTo(map.current!);
       drawingMarkers.current.push(marker);
 
-      // Complete on double click for polygon/line
-      if (drawMode === 'point') {
+      // Complete on single click for point
+      if (drawMode.type === 'point') {
         completeDrawing();
       }
     };
 
     const handleDblClick = () => {
-      if (drawMode && drawingPoints.current.length >= 2) {
+      if (drawMode.type && drawingPoints.current.length >= 2) {
         completeDrawing();
       }
     };
 
-    if (drawMode) {
+    if (drawMode.type) {
       map.current.on('click', handleMapClick);
       map.current.on('dblclick', handleDblClick);
     }
@@ -291,46 +298,67 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
 
   const completeDrawing = () => {
     const points = [...drawingPoints.current];
-    if (points.length === 0) return;
+    if (points.length === 0 || !drawMode.type) return;
 
     let geometry: any;
     let type: 'point' | 'line' | 'polygon' = 'point';
 
-    if (drawMode === 'point') {
+    if (drawMode.type === 'point') {
       geometry = { type: 'Point', coordinates: points[0] };
       type = 'point';
-    } else if (drawMode === 'line' && points.length >= 2) {
+    } else if (drawMode.type === 'line' && points.length >= 2) {
       geometry = { type: 'LineString', coordinates: points };
       type = 'line';
-    } else if (drawMode === 'polygon' && points.length >= 3) {
+    } else if (drawMode.type === 'polygon' && points.length >= 3) {
       geometry = { type: 'Polygon', coordinates: [[...points, points[0]]] };
       type = 'polygon';
     }
 
     if (geometry) {
-      const newLayer: GISLayer = {
-        id: `layer-${Date.now()}`,
-        name: `New ${drawMode}`,
-        type,
-        visible: true,
-        opacity: 1,
-        data: {
-          type: 'FeatureCollection',
-          features: [{
-            type: 'Feature',
-            geometry,
-            properties: {}
-          }]
-        },
-        style: {
-          color: '#f59e0b',
-          fillColor: '#f59e0b',
-          fillOpacity: 0.3,
-          weight: 2
-        }
+      const newFeature = {
+        type: 'Feature' as const,
+        geometry,
+        properties: drawMode.purpose === 'annotation' 
+          ? { _annotation: true, created: new Date().toISOString() }
+          : {}
       };
 
-      onLayersChange([...layers, newLayer]);
+      // If adding to existing layer
+      if (drawMode.purpose === 'feature' && drawMode.targetLayerId) {
+        const targetLayer = layers.find(l => l.id === drawMode.targetLayerId);
+        if (targetLayer) {
+          const updatedLayer = {
+            ...targetLayer,
+            data: {
+              ...targetLayer.data,
+              features: [...targetLayer.data.features, newFeature]
+            }
+          };
+          onLayersChange(layers.map(l => l.id === drawMode.targetLayerId ? updatedLayer : l));
+        }
+      } else {
+        // Create new layer
+        const isAnnotation = drawMode.purpose === 'annotation';
+        const newLayer: GISLayer = {
+          id: `layer-${Date.now()}`,
+          name: isAnnotation ? `Annotation ${drawMode.type}` : `New ${drawMode.type}`,
+          type,
+          visible: true,
+          opacity: 1,
+          data: {
+            type: 'FeatureCollection',
+            features: [newFeature]
+          },
+          style: {
+            color: isAnnotation ? '#10b981' : '#f59e0b',
+            fillColor: isAnnotation ? '#10b981' : '#f59e0b',
+            fillOpacity: isAnnotation ? 0.2 : 0.3,
+            weight: 2
+          }
+        };
+
+        onLayersChange([...layers, newLayer]);
+      }
     }
 
     // Clear drawing
