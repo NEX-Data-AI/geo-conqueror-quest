@@ -3,7 +3,8 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { GISLayer } from '@/types/gis';
 import { Button } from '@/components/ui/button';
-import { Map as MapIcon } from 'lucide-react';
+import { Map as MapIcon, Layers } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface GISMapProps {
   layers: GISLayer[];
@@ -253,22 +254,34 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
       activePopup.current.remove();
     }
 
-    // Build popup content
+    // Build popup content with proper styling
     const properties = feature.properties || {};
-    let html = '<div class="p-2 min-w-48"><h3 class="font-bold mb-2 text-sm">Feature Attributes</h3>';
+    let html = `
+      <div style="background: white; padding: 12px; min-width: 200px; max-width: 350px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+        <h3 style="font-weight: 700; margin-bottom: 8px; font-size: 14px; color: #1a1a1a; border-bottom: 2px solid #3b82f6; padding-bottom: 4px;">Feature Attributes</h3>
+    `;
     
     if (Object.keys(properties).length === 0) {
-      html += '<p class="text-xs text-gray-500">No attributes</p>';
+      html += '<p style="font-size: 12px; color: #6b7280; margin: 8px 0;">No attributes</p>';
     } else {
-      html += '<table class="w-full text-xs">';
+      html += '<table style="width: 100%; font-size: 12px; border-collapse: collapse;">';
       Object.entries(properties).forEach(([key, value]) => {
-        html += `<tr class="border-b"><td class="py-1 pr-2 font-medium">${key}</td><td class="py-1">${value}</td></tr>`;
+        html += `
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px 6px 0; font-weight: 600; color: #374151; vertical-align: top;">${key}</td>
+            <td style="padding: 6px 0; color: #1f2937;">${value}</td>
+          </tr>
+        `;
       });
       html += '</table>';
     }
     html += '</div>';
 
-    const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false })
+    const popup = new maplibregl.Popup({ 
+      closeButton: true, 
+      closeOnClick: false,
+      maxWidth: '350px'
+    })
       .setLngLat(lngLat)
       .setHTML(html)
       .addTo(map.current!);
@@ -330,35 +343,42 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
     <div className="relative flex-1">
       <div ref={mapContainer} className="absolute inset-0" />
       
-      {/* Basemap Switcher */}
-      <div className="absolute top-4 right-4 bg-card border rounded-lg shadow-lg p-2 space-y-1">
-        <Button
-          variant={basemap === 'street' ? 'default' : 'ghost'}
-          size="sm"
-          className="w-full justify-start"
-          onClick={() => setBasemap('street')}
-        >
-          <MapIcon className="h-4 w-4 mr-2" />
-          Street
-        </Button>
-        <Button
-          variant={basemap === 'satellite' ? 'default' : 'ghost'}
-          size="sm"
-          className="w-full justify-start"
-          onClick={() => setBasemap('satellite')}
-        >
-          <MapIcon className="h-4 w-4 mr-2" />
-          Satellite
-        </Button>
-        <Button
-          variant={basemap === 'terrain' ? 'default' : 'ghost'}
-          size="sm"
-          className="w-full justify-start"
-          onClick={() => setBasemap('terrain')}
-        >
-          <MapIcon className="h-4 w-4 mr-2" />
-          Terrain
-        </Button>
+      {/* Basemap Switcher - Compact Icon */}
+      <div className="absolute top-4 right-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="default" 
+              size="icon"
+              className="h-10 w-10 rounded-lg shadow-lg bg-card border-2 hover:bg-muted"
+            >
+              <Layers className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40 bg-card border-2 z-50">
+            <DropdownMenuItem 
+              onClick={() => setBasemap('street')}
+              className={basemap === 'street' ? 'bg-primary/10 font-medium' : ''}
+            >
+              <MapIcon className="h-4 w-4 mr-2" />
+              Street
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => setBasemap('satellite')}
+              className={basemap === 'satellite' ? 'bg-primary/10 font-medium' : ''}
+            >
+              <MapIcon className="h-4 w-4 mr-2" />
+              Satellite
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => setBasemap('terrain')}
+              className={basemap === 'terrain' ? 'bg-primary/10 font-medium' : ''}
+            >
+              <MapIcon className="h-4 w-4 mr-2" />
+              Terrain
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
