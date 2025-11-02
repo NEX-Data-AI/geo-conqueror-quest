@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import GISMap, { DrawingMode } from '@/components/GIS/GISMap';
 import Legend from '@/components/GIS/Legend';
 import Toolbar from '@/components/GIS/Toolbar';
@@ -13,6 +13,7 @@ const GIS = () => {
   const [drawMode, setDrawMode] = useState<DrawingMode>({ type: 'select', purpose: 'feature', selectMode: 'click' });
   const [showAttributeTable, setShowAttributeTable] = useState(false);
   const [selectedFeatures, setSelectedFeatures] = useState<Map<string, number[]>>(new Map());
+  const clearSelectionRef = useRef<() => void>(() => {});
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
@@ -35,6 +36,11 @@ const GIS = () => {
           onDrawModeChange={setDrawMode}
           onToggleAttributeTable={() => setShowAttributeTable(!showAttributeTable)}
           onImportData={(newLayers) => setLayers([...layers, ...newLayers])}
+          onClearSelection={() => {
+            setSelectedFeatures(new Map());
+            setShowAttributeTable(false);
+            clearSelectionRef.current();
+          }}
         />
 
         {/* Map and Attribute Table with Resizable Panels */}
@@ -51,6 +57,7 @@ const GIS = () => {
                   setSelectedFeatures(selections);
                   setShowAttributeTable(true);
                 }}
+                onClearSelectionRef={clearSelectionRef}
               />
             </ResizablePanel>
             <ResizableHandle withHandle />
@@ -80,6 +87,7 @@ const GIS = () => {
                 setSelectedFeatures(selections);
                 setShowAttributeTable(true);
               }}
+              onClearSelectionRef={clearSelectionRef}
             />
           </div>
         )}

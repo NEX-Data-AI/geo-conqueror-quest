@@ -20,9 +20,10 @@ interface GISMapProps {
   drawMode: DrawingMode;
   onLayersChange: (layers: GISLayer[]) => void;
   onFeatureSelect?: (selections: Map<string, number[]>) => void;
+  onClearSelectionRef?: React.MutableRefObject<() => void>;
 }
 
-const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, onFeatureSelect }: GISMapProps) => {
+const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, onFeatureSelect, onClearSelectionRef }: GISMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [basemap, setBasemap] = useState<'street' | 'satellite' | 'terrain'>('street');
@@ -90,6 +91,48 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
       }]
     }
   };
+
+  // Setup clear selection function
+  useEffect(() => {
+    if (onClearSelectionRef) {
+      onClearSelectionRef.current = () => {
+        // Clear highlighted features
+        highlightedFeatures.current.clear();
+        
+        // Reset all layer paint properties to default
+        layers.forEach(lyr => {
+          if (lyr.type === 'polygon') {
+            if (map.current?.getLayer(`${lyr.id}-fill`)) {
+              map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-color', lyr.style?.fillColor || '#3b82f6');
+              map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-opacity', (lyr.style?.fillOpacity || 0.3) * lyr.opacity);
+            }
+            if (map.current?.getLayer(`${lyr.id}-line`)) {
+              map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', lyr.style?.color || '#3b82f6');
+              map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', lyr.style?.weight || 2);
+            }
+          } else if (lyr.type === 'line') {
+            if (map.current?.getLayer(`${lyr.id}-line`)) {
+              map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', lyr.style?.color || '#3b82f6');
+              map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', lyr.style?.weight || 2);
+            }
+          } else if (lyr.type === 'point') {
+            if (map.current?.getLayer(`${lyr.id}-circle`)) {
+              map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-radius', lyr.style?.weight || 6);
+              map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-color', lyr.style?.fillColor || '#3b82f6');
+              map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-color', lyr.style?.color || '#fff');
+              map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-width', 2);
+            }
+          }
+        });
+        
+        // Close any open popups
+        if (activePopup.current) {
+          activePopup.current.remove();
+          activePopup.current = null;
+        }
+      };
+    }
+  }, [layers, onClearSelectionRef]);
 
   // Initialize map
   useEffect(() => {
@@ -354,13 +397,13 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-color', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#fbbf24',
+              '#22c55e',
               lyr.style?.fillColor || '#3b82f6'
             ]);
             map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-opacity', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              0.5,
+              0.6,
               (lyr.style?.fillOpacity || 0.3) * lyr.opacity
             ]);
           }
@@ -368,13 +411,13 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#f59e0b',
+              '#16a34a',
               lyr.style?.color || '#3b82f6'
             ]);
             map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              3,
+              4,
               lyr.style?.weight || 2
             ]);
           }
@@ -383,13 +426,13 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#f59e0b',
+              '#22c55e',
               lyr.style?.color || '#3b82f6'
             ]);
             map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              4,
+              5,
               lyr.style?.weight || 2
             ]);
           }
@@ -404,18 +447,28 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-color', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#fbbf24',
+              '#22c55e',
               lyr.style?.fillColor || '#3b82f6'
             ]);
             map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-color', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#f59e0b',
+              '#16a34a',
               lyr.style?.color || '#fff'
+            ]);
+            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-width', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              3,
+              2
             ]);
           }
         }
       });
+      
+      // Notify parent component to open attribute table
+      onFeatureSelect?.(new Map([[layerId, [featureIndex]]]));
+      
       
       // Show popup
       if (activePopup.current) {
@@ -603,13 +656,13 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-color', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#fbbf24',
+              '#22c55e',
               lyr.style?.fillColor || '#3b82f6'
             ]);
             map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-opacity', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              0.5,
+              0.6,
               (lyr.style?.fillOpacity || 0.3) * lyr.opacity
             ]);
           }
@@ -617,13 +670,13 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#f59e0b',
+              '#16a34a',
               lyr.style?.color || '#3b82f6'
             ]);
             map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              3,
+              4,
               lyr.style?.weight || 2
             ]);
           }
@@ -632,13 +685,13 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#f59e0b',
+              '#22c55e',
               lyr.style?.color || '#3b82f6'
             ]);
             map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              4,
+              5,
               lyr.style?.weight || 2
             ]);
           }
@@ -653,18 +706,27 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-color', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#fbbf24',
+              '#22c55e',
               lyr.style?.fillColor || '#3b82f6'
             ]);
             map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-color', [
               'case',
               ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#f59e0b',
+              '#16a34a',
               lyr.style?.color || '#fff'
+            ]);
+            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-width', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              3,
+              2
             ]);
           }
         }
       });
+      
+      // Notify parent component to open attribute table
+      onFeatureSelect?.(selectedByLayer);
 
       // Clean up selection polygon
       if (map.current!.getSource('selection-polygon')) {

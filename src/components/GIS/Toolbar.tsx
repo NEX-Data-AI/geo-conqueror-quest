@@ -1,4 +1,4 @@
-import { Upload, MousePointer, Circle, Minus, Square, Table, StickyNote, MapPin, Plus } from 'lucide-react';
+import { Upload, MousePointer, Circle, Minus, Square, Table, StickyNote, MapPin, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
@@ -22,9 +22,10 @@ interface ToolbarProps {
   onDrawModeChange: (mode: DrawingMode) => void;
   onToggleAttributeTable: () => void;
   onImportData: (layers: GISLayer[]) => void;
+  onClearSelection?: () => void;
 }
 
-const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, onImportData }: ToolbarProps) => {
+const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, onImportData, onClearSelection }: ToolbarProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showModeSelector, setShowModeSelector] = useState(false);
   const [pendingDrawType, setPendingDrawType] = useState<'point' | 'line' | 'polygon' | null>(null);
@@ -183,6 +184,15 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
             </div>
           </PopoverContent>
         </Popover>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onClearSelection}
+          className="ml-1"
+        >
+          Clear
+        </Button>
 
         <div className="h-8 w-px bg-border mx-1" />
 
