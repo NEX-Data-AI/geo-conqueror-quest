@@ -38,22 +38,27 @@ const MapView = () => {
       style: {
         version: 8,
         sources: {
-          'osm': {
+          'carto-dark': {
             type: 'raster',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tiles: [
+              'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+              'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+              'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+            ],
             tileSize: 256,
-            attribution: '© OpenStreetMap contributors'
+            attribution: '© CARTO © OpenStreetMap contributors'
           }
         },
         layers: [{
-          id: 'osm',
+          id: 'carto-dark',
           type: 'raster',
-          source: 'osm',
+          source: 'carto-dark',
           minzoom: 0,
-          maxzoom: 19
-        }]
+          maxzoom: 20
+        }],
+        glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
       },
-      center: [-98.5795, 39.8283], // Center of US
+      center: [-98.5795, 39.8283],
       zoom: 4,
       pitch: 0,
     });
@@ -240,11 +245,20 @@ const MapView = () => {
       {/* Player Info */}
       {player && (
         <div className="absolute top-4 right-4 bg-card/95 backdrop-blur-sm border-2 border-border rounded-lg p-3 shadow-emboss">
-          <div className="text-sm space-y-1">
-            <div className="font-bold text-primary">{player.codename}</div>
-            <div className="flex gap-3 text-xs text-muted-foreground">
-              <span>Lvl {player.level}</span>
-              <span>XP {player.xp}</span>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-2xl border-2 border-primary/40 overflow-hidden flex-shrink-0">
+              {player.avatar.startsWith('data:') ? (
+                <img src={player.avatar} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span>{player.avatar}</span>
+              )}
+            </div>
+            <div className="text-sm space-y-1">
+              <div className="font-bold text-primary">{player.codename}</div>
+              <div className="flex gap-3 text-xs text-muted-foreground">
+                <span>Lvl {player.level}</span>
+                <span>XP {player.xp}</span>
+              </div>
             </div>
           </div>
         </div>

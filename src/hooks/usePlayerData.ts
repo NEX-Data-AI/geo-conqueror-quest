@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 export interface PlayerData {
   codename: string;
+  avatar: string; // emoji or data URL
   level: number;
   xp: number;
   reputation: number;
