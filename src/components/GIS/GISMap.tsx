@@ -89,6 +89,11 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
     map.current.addControl(new maplibregl.ScaleControl(), 'bottom-left');
 
+    // Wait for map to load before setting as ready
+    map.current.on('load', () => {
+      console.log('Map loaded');
+    });
+
     return () => {
       map.current?.remove();
     };
@@ -99,7 +104,10 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     if (!map.current) return;
     
     setIsChangingBasemap(true);
-    map.current.once('styledata', () => {
+    
+    // Use style.load instead of styledata for proper basemap loading
+    map.current.once('style.load', () => {
+      console.log('Basemap style loaded:', basemap);
       setIsChangingBasemap(false);
     });
     
