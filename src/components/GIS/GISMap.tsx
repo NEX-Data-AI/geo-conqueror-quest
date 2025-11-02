@@ -345,18 +345,77 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
       highlightedFeatures.current.clear();
       highlightedFeatures.current.set(layerId, [featureIndex]);
       
-      // Refresh the layer to show highlight
-      if (map.current?.getSource(layerId)) {
-        const source = map.current.getSource(layerId) as maplibregl.GeoJSONSource;
-        const updatedData = {
-          ...layer.data,
-          features: layer.data.features.map((f, idx) => ({
-            ...f,
-            properties: { ...f.properties, _featureIndex: idx }
-          }))
-        };
-        source.setData(updatedData);
-      }
+      // Force map to update by refreshing paint properties
+      layers.forEach(lyr => {
+        const highlighted = highlightedFeatures.current.get(lyr.id) || [];
+        
+        if (lyr.type === 'polygon') {
+          if (map.current?.getLayer(`${lyr.id}-fill`)) {
+            map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-color', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              '#fbbf24',
+              lyr.style?.fillColor || '#3b82f6'
+            ]);
+            map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-opacity', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              0.5,
+              (lyr.style?.fillOpacity || 0.3) * lyr.opacity
+            ]);
+          }
+          if (map.current?.getLayer(`${lyr.id}-line`)) {
+            map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              '#f59e0b',
+              lyr.style?.color || '#3b82f6'
+            ]);
+            map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              3,
+              lyr.style?.weight || 2
+            ]);
+          }
+        } else if (lyr.type === 'line') {
+          if (map.current?.getLayer(`${lyr.id}-line`)) {
+            map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              '#f59e0b',
+              lyr.style?.color || '#3b82f6'
+            ]);
+            map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              4,
+              lyr.style?.weight || 2
+            ]);
+          }
+        } else if (lyr.type === 'point') {
+          if (map.current?.getLayer(`${lyr.id}-circle`)) {
+            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-radius', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              10,
+              lyr.style?.weight || 6
+            ]);
+            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-color', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              '#fbbf24',
+              lyr.style?.fillColor || '#3b82f6'
+            ]);
+            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-color', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              '#f59e0b',
+              lyr.style?.color || '#fff'
+            ]);
+          }
+        }
+      });
       
       // Show popup
       if (activePopup.current) {
@@ -535,18 +594,75 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
       // Update highlights
       highlightedFeatures.current = selectedByLayer;
       
-      // Refresh all layers to show highlights
-      layers.forEach(layer => {
-        if (map.current?.getSource(layer.id)) {
-          const source = map.current.getSource(layer.id) as maplibregl.GeoJSONSource;
-          const updatedData = {
-            ...layer.data,
-            features: layer.data.features.map((f, idx) => ({
-              ...f,
-              properties: { ...f.properties, _featureIndex: idx }
-            }))
-          };
-          source.setData(updatedData);
+      // Force map to update by refreshing paint properties
+      layers.forEach(lyr => {
+        const highlighted = highlightedFeatures.current.get(lyr.id) || [];
+        
+        if (lyr.type === 'polygon') {
+          if (map.current?.getLayer(`${lyr.id}-fill`)) {
+            map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-color', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              '#fbbf24',
+              lyr.style?.fillColor || '#3b82f6'
+            ]);
+            map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-opacity', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              0.5,
+              (lyr.style?.fillOpacity || 0.3) * lyr.opacity
+            ]);
+          }
+          if (map.current?.getLayer(`${lyr.id}-line`)) {
+            map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              '#f59e0b',
+              lyr.style?.color || '#3b82f6'
+            ]);
+            map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              3,
+              lyr.style?.weight || 2
+            ]);
+          }
+        } else if (lyr.type === 'line') {
+          if (map.current?.getLayer(`${lyr.id}-line`)) {
+            map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              '#f59e0b',
+              lyr.style?.color || '#3b82f6'
+            ]);
+            map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              4,
+              lyr.style?.weight || 2
+            ]);
+          }
+        } else if (lyr.type === 'point') {
+          if (map.current?.getLayer(`${lyr.id}-circle`)) {
+            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-radius', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              10,
+              lyr.style?.weight || 6
+            ]);
+            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-color', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              '#fbbf24',
+              lyr.style?.fillColor || '#3b82f6'
+            ]);
+            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-color', [
+              'case',
+              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+              '#f59e0b',
+              lyr.style?.color || '#fff'
+            ]);
+          }
         }
       });
 
