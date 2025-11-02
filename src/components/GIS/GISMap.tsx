@@ -97,153 +97,156 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
   useEffect(() => {
     if (!map.current) return;
     
-    const changeStyle = () => {
-      if (map.current?.isStyleLoaded()) {
-        map.current.setStyle(basemapStyles[basemap]);
-      } else {
-        setTimeout(changeStyle, 100);
-      }
-    };
-    
-    changeStyle();
+    map.current.setStyle(basemapStyles[basemap]);
   }, [basemap]);
 
   // Render layers
   useEffect(() => {
-    if (!map.current || !map.current.isStyleLoaded()) return;
+    if (!map.current) return;
 
-    layers.forEach(layer => {
-      if (map.current!.getLayer(`${layer.id}-fill`)) {
-        map.current!.removeLayer(`${layer.id}-fill`);
+    const renderLayers = () => {
+      if (!map.current?.isStyleLoaded()) {
+        setTimeout(renderLayers, 100);
+        return;
       }
-      if (map.current!.getLayer(`${layer.id}-line`)) {
-        map.current!.removeLayer(`${layer.id}-line`);
-      }
-      if (map.current!.getLayer(`${layer.id}-circle`)) {
-        map.current!.removeLayer(`${layer.id}-circle`);
-      }
-      if (map.current!.getSource(layer.id)) {
-        map.current!.removeSource(layer.id);
-      }
-    });
 
-    layers.forEach(layer => {
-      if (!layer.visible || !layer.data.features.length) return;
-
-      map.current!.addSource(layer.id, {
-        type: 'geojson',
-        data: layer.data
+      // Remove existing layers
+      layers.forEach(layer => {
+        if (map.current!.getLayer(`${layer.id}-fill`)) {
+          map.current!.removeLayer(`${layer.id}-fill`);
+        }
+        if (map.current!.getLayer(`${layer.id}-line`)) {
+          map.current!.removeLayer(`${layer.id}-line`);
+        }
+        if (map.current!.getLayer(`${layer.id}-circle`)) {
+          map.current!.removeLayer(`${layer.id}-circle`);
+        }
+        if (map.current!.getSource(layer.id)) {
+          map.current!.removeSource(layer.id);
+        }
       });
 
-      if (layer.type === 'polygon') {
-        map.current!.addLayer({
-          id: `${layer.id}-fill`,
-          type: 'fill',
-          source: layer.id,
-          paint: {
-            'fill-color': layer.style?.fillColor || '#3b82f6',
-            'fill-opacity': (layer.style?.fillOpacity || 0.3) * layer.opacity
-          }
-        });
-        map.current!.addLayer({
-          id: `${layer.id}-line`,
-          type: 'line',
-          source: layer.id,
-          paint: {
-            'line-color': layer.style?.color || '#3b82f6',
-            'line-width': layer.style?.weight || 2,
-            'line-opacity': layer.opacity
-          }
-        });
-        
-        if (layer.selectable !== false) {
-          map.current!.on('click', `${layer.id}-fill`, (e) => {
-            if (drawMode.type === 'select' && drawMode.selectMode === 'click' && e.features && e.features.length > 0) {
-              handleFeatureClick(layer.id, e.features[0]);
-            }
-          });
-          map.current!.on('mouseenter', `${layer.id}-fill`, () => {
-            if (drawMode.type === 'select') {
-              map.current!.getCanvas().style.cursor = 'pointer';
-            }
-          });
-          map.current!.on('mouseleave', `${layer.id}-fill`, () => {
-            map.current!.getCanvas().style.cursor = '';
-          });
-        }
-      } else if (layer.type === 'line') {
-        map.current!.addLayer({
-          id: `${layer.id}-line`,
-          type: 'line',
-          source: layer.id,
-          paint: {
-            'line-color': layer.style?.color || '#3b82f6',
-            'line-width': layer.style?.weight || 2,
-            'line-opacity': layer.opacity
-          }
-        });
-        
-        if (layer.selectable !== false) {
-          map.current!.on('click', `${layer.id}-line`, (e) => {
-            if (drawMode.type === 'select' && drawMode.selectMode === 'click' && e.features && e.features.length > 0) {
-              handleFeatureClick(layer.id, e.features[0]);
-            }
-          });
-          map.current!.on('mouseenter', `${layer.id}-line`, () => {
-            if (drawMode.type === 'select') {
-              map.current!.getCanvas().style.cursor = 'pointer';
-            }
-          });
-          map.current!.on('mouseleave', `${layer.id}-line`, () => {
-            map.current!.getCanvas().style.cursor = '';
-          });
-        }
-      } else if (layer.type === 'point') {
-        map.current!.addLayer({
-          id: `${layer.id}-circle`,
-          type: 'circle',
-          source: layer.id,
-          paint: {
-            'circle-radius': layer.style?.weight || 6,
-            'circle-color': layer.style?.fillColor || '#3b82f6',
-            'circle-opacity': layer.opacity,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': layer.style?.color || '#fff'
-          }
-        });
-        
-        if (layer.selectable !== false) {
-          map.current!.on('click', `${layer.id}-circle`, (e) => {
-            if (drawMode.type === 'select' && drawMode.selectMode === 'click' && e.features && e.features.length > 0) {
-              handleFeatureClick(layer.id, e.features[0]);
-            }
-          });
-          map.current!.on('mouseenter', `${layer.id}-circle`, () => {
-            if (drawMode.type === 'select') {
-              map.current!.getCanvas().style.cursor = 'pointer';
-            }
-          });
-          map.current!.on('mouseleave', `${layer.id}-circle`, () => {
-            map.current!.getCanvas().style.cursor = '';
-          });
-        }
-      }
+      // Add layers
+      layers.forEach(layer => {
+        if (!layer.visible || !layer.data.features.length) return;
 
-      if (layer.id === selectedLayer && layer.data.features.length > 0) {
-        const bounds = new maplibregl.LngLatBounds();
-        layer.data.features.forEach(feature => {
-          if (feature.geometry.type === 'Point') {
-            bounds.extend(feature.geometry.coordinates as [number, number]);
-          } else if (feature.geometry.type === 'LineString') {
-            feature.geometry.coordinates.forEach(coord => bounds.extend(coord as [number, number]));
-          } else if (feature.geometry.type === 'Polygon') {
-            feature.geometry.coordinates[0].forEach(coord => bounds.extend(coord as [number, number]));
-          }
+        map.current!.addSource(layer.id, {
+          type: 'geojson',
+          data: layer.data
         });
-        map.current!.fitBounds(bounds, { padding: 50 });
-      }
-    });
-  }, [layers, selectedLayer]);
+
+        if (layer.type === 'polygon') {
+          map.current!.addLayer({
+            id: `${layer.id}-fill`,
+            type: 'fill',
+            source: layer.id,
+            paint: {
+              'fill-color': layer.style?.fillColor || '#3b82f6',
+              'fill-opacity': (layer.style?.fillOpacity || 0.3) * layer.opacity
+            }
+          });
+          map.current!.addLayer({
+            id: `${layer.id}-line`,
+            type: 'line',
+            source: layer.id,
+            paint: {
+              'line-color': layer.style?.color || '#3b82f6',
+              'line-width': layer.style?.weight || 2,
+              'line-opacity': layer.opacity
+            }
+          });
+          
+          if (layer.selectable !== false) {
+            map.current!.on('click', `${layer.id}-fill`, (e) => {
+              if (drawMode.type === 'select' && drawMode.selectMode === 'click' && e.features && e.features.length > 0) {
+                handleFeatureClick(layer.id, e.features[0]);
+              }
+            });
+            map.current!.on('mouseenter', `${layer.id}-fill`, () => {
+              if (drawMode.type === 'select') {
+                map.current!.getCanvas().style.cursor = 'pointer';
+              }
+            });
+            map.current!.on('mouseleave', `${layer.id}-fill`, () => {
+              map.current!.getCanvas().style.cursor = '';
+            });
+          }
+        } else if (layer.type === 'line') {
+          map.current!.addLayer({
+            id: `${layer.id}-line`,
+            type: 'line',
+            source: layer.id,
+            paint: {
+              'line-color': layer.style?.color || '#3b82f6',
+              'line-width': layer.style?.weight || 2,
+              'line-opacity': layer.opacity
+            }
+          });
+          
+          if (layer.selectable !== false) {
+            map.current!.on('click', `${layer.id}-line`, (e) => {
+              if (drawMode.type === 'select' && drawMode.selectMode === 'click' && e.features && e.features.length > 0) {
+                handleFeatureClick(layer.id, e.features[0]);
+              }
+            });
+            map.current!.on('mouseenter', `${layer.id}-line`, () => {
+              if (drawMode.type === 'select') {
+                map.current!.getCanvas().style.cursor = 'pointer';
+              }
+            });
+            map.current!.on('mouseleave', `${layer.id}-line`, () => {
+              map.current!.getCanvas().style.cursor = '';
+            });
+          }
+        } else if (layer.type === 'point') {
+          map.current!.addLayer({
+            id: `${layer.id}-circle`,
+            type: 'circle',
+            source: layer.id,
+            paint: {
+              'circle-radius': layer.style?.weight || 6,
+              'circle-color': layer.style?.fillColor || '#3b82f6',
+              'circle-opacity': layer.opacity,
+              'circle-stroke-width': 2,
+              'circle-stroke-color': layer.style?.color || '#fff'
+            }
+          });
+          
+          if (layer.selectable !== false) {
+            map.current!.on('click', `${layer.id}-circle`, (e) => {
+              if (drawMode.type === 'select' && drawMode.selectMode === 'click' && e.features && e.features.length > 0) {
+                handleFeatureClick(layer.id, e.features[0]);
+              }
+            });
+            map.current!.on('mouseenter', `${layer.id}-circle`, () => {
+              if (drawMode.type === 'select') {
+                map.current!.getCanvas().style.cursor = 'pointer';
+              }
+            });
+            map.current!.on('mouseleave', `${layer.id}-circle`, () => {
+              map.current!.getCanvas().style.cursor = '';
+            });
+          }
+        }
+
+        if (layer.id === selectedLayer && layer.data.features.length > 0) {
+          const bounds = new maplibregl.LngLatBounds();
+          layer.data.features.forEach(feature => {
+            if (feature.geometry.type === 'Point') {
+              bounds.extend(feature.geometry.coordinates as [number, number]);
+            } else if (feature.geometry.type === 'LineString') {
+              feature.geometry.coordinates.forEach(coord => bounds.extend(coord as [number, number]));
+            } else if (feature.geometry.type === 'Polygon') {
+              feature.geometry.coordinates[0].forEach(coord => bounds.extend(coord as [number, number]));
+            }
+          });
+          map.current!.fitBounds(bounds, { padding: 50 });
+        }
+      });
+    };
+
+    renderLayers();
+  }, [layers, selectedLayer, basemap, drawMode]);
 
   const handleFeatureClick = (layerId: string, feature: any) => {
     const layer = layers.find(l => l.id === layerId);
