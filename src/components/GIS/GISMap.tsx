@@ -26,6 +26,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [basemap, setBasemap] = useState<'street' | 'satellite' | 'terrain'>('street');
+  const isInitialMount = useRef(true);
   const drawingPoints = useRef<[number, number][]>([]);
   const drawingMarkers = useRef<maplibregl.Marker[]>([]);
   const activePopup = useRef<maplibregl.Popup | null>(null);
@@ -94,9 +95,15 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     };
   }, []);
 
-  // Handle basemap changes
+  // Handle basemap changes (skip initial mount)
   useEffect(() => {
     if (!map.current) return;
+    
+    // Skip the first run since map is initialized with 'street' basemap
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
 
     map.current.setStyle(basemapStyles[basemap]);
   }, [basemap]);
