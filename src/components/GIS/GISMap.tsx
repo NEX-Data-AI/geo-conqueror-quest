@@ -26,8 +26,6 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [basemap, setBasemap] = useState<'street' | 'satellite' | 'terrain'>('street');
-  const [isChangingBasemap, setIsChangingBasemap] = useState(false);
-  const [mapLoaded, setMapLoaded] = useState(false);
   const drawingPoints = useRef<[number, number][]>([]);
   const drawingMarkers = useRef<maplibregl.Marker[]>([]);
   const activePopup = useRef<maplibregl.Popup | null>(null);
@@ -82,7 +80,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: basemapStyles[basemap],
+      style: basemapStyles['street'],
       center: [-98.5795, 39.8283],
       zoom: 4
     });
@@ -90,39 +88,26 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
     map.current.addControl(new maplibregl.ScaleControl(), 'bottom-left');
 
-    // Wait for map to load before setting as ready
-    map.current.on('load', () => {
-      console.log('Map loaded');
-      setMapLoaded(true);
-    });
-
     return () => {
       map.current?.remove();
+      map.current = null;
     };
   }, []);
 
-  // Change basemap (only after initial map load)
+  // Handle basemap changes
   useEffect(() => {
-    if (!map.current || !mapLoaded) return;
-    
-    setIsChangingBasemap(true);
-    
-    // Use style.load instead of styledata for proper basemap loading
-    map.current.once('style.load', () => {
-      console.log('Basemap style loaded:', basemap);
-      setIsChangingBasemap(false);
-    });
-    
-    map.current.setStyle(basemapStyles[basemap]);
-  }, [basemap, mapLoaded]);
+    if (!map.current) return;
 
-  // Render layers
+    map.current.setStyle(basemapStyles[basemap]);
+  }, [basemap]);
+
+  // Render layers whenever they change or basemap changes
   useEffect(() => {
-    if (!map.current || isChangingBasemap) return;
+    if (!map.current) return;
 
     const renderLayers = () => {
       if (!map.current?.isStyleLoaded()) {
-        setTimeout(renderLayers, 100);
+        setTimeout(renderLayers, 50);
         return;
       }
 
@@ -262,7 +247,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     };
 
     renderLayers();
-  }, [layers, selectedLayer, basemap, drawMode, isChangingBasemap]);
+  }, [layers, selectedLayer, basemap, drawMode]);
 
   const handleFeatureClick = (layerId: string, feature: any) => {
     const layer = layers.find(l => l.id === layerId);
