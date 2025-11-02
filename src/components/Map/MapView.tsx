@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { MapPin, Pencil, Shield, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
+import { usePlayerData } from '@/hooks/usePlayerData';
 
 type MapMode = 'view' | 'draw' | 'cache';
 
@@ -24,9 +25,9 @@ const MapView = () => {
   const map = useRef<maplibregl.Map | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>('view');
   const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
-  const [territories, setTerritories] = useState<Territory[]>([]);
-  const [caches, setCaches] = useState<Cache[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const { player, gameData, addTerritory, addCache } = usePlayerData();
+  const { territories, caches } = gameData;
 
   // Initialize map
   useEffect(() => {
@@ -158,7 +159,7 @@ const MapView = () => {
           coordinates: coords,
           rarity: 'common'
         };
-        setCaches([...caches, newCache]);
+        addCache(newCache);
 
         // Add cache marker
         const el = document.createElement('div');
@@ -202,7 +203,7 @@ const MapView = () => {
       level: 1
     };
 
-    setTerritories([...territories, newTerritory]);
+    addTerritory(newTerritory);
     
     toast({
       title: "Territory Claimed!",
@@ -235,6 +236,19 @@ const MapView = () => {
   return (
     <div className="relative w-full h-screen">
       <div ref={mapContainer} className="absolute inset-0" />
+      
+      {/* Player Info */}
+      {player && (
+        <div className="absolute top-4 right-4 bg-card/95 backdrop-blur-sm border-2 border-border rounded-lg p-3 shadow-emboss">
+          <div className="text-sm space-y-1">
+            <div className="font-bold text-primary">{player.codename}</div>
+            <div className="flex gap-3 text-xs text-muted-foreground">
+              <span>Lvl {player.level}</span>
+              <span>XP {player.xp}</span>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Controls */}
       <div className="absolute top-4 left-4 bg-card/95 backdrop-blur-sm border-2 border-border rounded-lg p-4 shadow-emboss space-y-3">
@@ -301,7 +315,7 @@ const MapView = () => {
 
       {/* Instructions */}
       {mapMode !== 'view' && (
-        <div className="absolute top-4 right-4 bg-primary/95 text-primary-foreground px-4 py-3 rounded-lg shadow-glow max-w-xs">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-primary/95 text-primary-foreground px-4 py-3 rounded-lg shadow-glow max-w-xs">
           <p className="text-sm font-medium">
             {mapMode === 'draw' 
               ? "Click on the map to add points to your territory. Complete when done."
