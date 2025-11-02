@@ -286,6 +286,167 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     }
   };
 
+  // Helper function to check if a feature is inside a polygon
+  const isFeatureInPolygon = (feature: any, polygon: number[][]): boolean => {
+    const geometry = feature.geometry;
+    
+    if (geometry.type === 'Point') {
+      const point = geometry.coordinates;
+      return pointInPolygon(point, polygon);
+    } else if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+      // Check if polygon centroid is inside selection
+      const coords = geometry.type === 'Polygon' 
+        ? geometry.coordinates[0] 
+        : geometry.coordinates[0][0];
+      const centroid = calculateCentroid(coords);
+      return pointInPolygon(centroid, polygon);
+    } else if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
+      // Check if any point of line is inside selection
+      const coords = geometry.type === 'LineString' 
+        ? geometry.coordinates 
+        : geometry.coordinates[0];
+      return coords.some((point: number[]) => pointInPolygon(point, polygon));
+    }
+    
+    return false;
+  };
+
+  // Point-in-polygon algorithm (ray casting)
+  const pointInPolygon = (point: number[], polygon: number[][]): boolean => {
+    const [x, y] = point;
+    let inside = false;
+
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const [xi, yi] = polygon[i];
+      const [xj, yj] = polygon[j];
+
+      const intersect = ((yi > y) !== (yj > y)) &&
+        (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      
+      if (intersect) inside = !inside;
+    }
+
+    return inside;
+  };
+
+  // Calculate centroid of a polygon
+  const calculateCentroid = (coords: number[][]): number[] => {
+    let sumX = 0, sumY = 0;
+    coords.forEach(([x, y]) => {
+      sumX += x;
+      sumY += y;
+    });
+    return [sumX / coords.length, sumY / coords.length];
+  };
+
+  // Handle polygon selection mode
+  useEffect(() => {
+    if (!map.current || drawMode.type !== 'select' || drawMode.selectMode !== 'polygon') return;
+
+    let selectionPolygon: number[][] = [];
+    let markers: maplibregl.Marker[] = [];
+
+    const handleClick = (e: maplibregl.MapMouseEvent) => {
+      const coords = [e.lngLat.lng, e.lngLat.lat];
+      selectionPolygon.push(coords);
+
+      // Add marker at click point
+      const marker = new maplibregl.Marker({ color: '#ef4444' })
+        .setLngLat(e.lngLat)
+        .addTo(map.current!);
+      markers.push(marker);
+
+      // Draw selection polygon lines
+      if (selectionPolygon.length > 1) {
+        const sourceId = 'selection-polygon';
+        const layerId = 'selection-polygon-line';
+
+        if (map.current!.getSource(sourceId)) {
+          (map.current!.getSource(sourceId) as maplibregl.GeoJSONSource).setData({
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: selectionPolygon
+            },
+            properties: {}
+          });
+        } else {
+          map.current!.addSource(sourceId, {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              geometry: {
+                type: 'LineString',
+                coordinates: selectionPolygon
+              },
+              properties: {}
+            }
+          });
+
+          map.current!.addLayer({
+            id: layerId,
+            type: 'line',
+            source: sourceId,
+            paint: {
+              'line-color': '#ef4444',
+              'line-width': 2,
+              'line-dasharray': [2, 2]
+            }
+          });
+        }
+      }
+    };
+
+    const handleDblClick = (e: maplibregl.MapMouseEvent) => {
+      e.preventDefault();
+
+      if (selectionPolygon.length < 3) return;
+
+      // Close the polygon
+      selectionPolygon.push(selectionPolygon[0]);
+
+      // Find features within polygon
+      const selectedByLayer = new Map<string, number[]>();
+
+      layers.forEach(layer => {
+        layer.data.features.forEach((feature, index) => {
+          if (isFeatureInPolygon(feature, selectionPolygon)) {
+            const existing = selectedByLayer.get(layer.id) || [];
+            selectedByLayer.set(layer.id, [...existing, index]);
+          }
+        });
+      });
+
+      // Clean up selection polygon
+      if (map.current!.getSource('selection-polygon')) {
+        map.current!.removeLayer('selection-polygon-line');
+        map.current!.removeSource('selection-polygon');
+      }
+      markers.forEach(m => m.remove());
+
+      onFeatureSelect?.(selectedByLayer);
+
+      // Reset for next selection
+      selectionPolygon = [];
+      markers = [];
+    };
+
+    map.current.on('click', handleClick);
+    map.current.on('dblclick', handleDblClick);
+
+    return () => {
+      map.current?.off('click', handleClick);
+      map.current?.off('dblclick', handleDblClick);
+      
+      // Clean up
+      if (map.current?.getSource('selection-polygon')) {
+        map.current.removeLayer('selection-polygon-line');
+        map.current.removeSource('selection-polygon');
+      }
+      markers.forEach(m => m.remove());
+    };
+  }, [drawMode, layers, onFeatureSelect]);
+
   // Handle drawing mode
   useEffect(() => {
     if (!map.current) return;
@@ -395,10 +556,18 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
 
   return (
     <div className="relative w-full h-full">
-      <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
+      <div 
+        ref={mapContainer} 
+        className="absolute inset-0 w-full h-full"
+        style={{ 
+          cursor: drawMode.type === 'select' && drawMode.selectMode === 'polygon' 
+            ? 'crosshair' 
+            : 'default' 
+        }}
+      />
       
       {/* Basemap Switcher */}
-      <div className="absolute top-4 left-4 z-[999]">
+      <div className="absolute top-4 left-4 z-[998]">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 

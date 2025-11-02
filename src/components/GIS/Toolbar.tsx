@@ -151,12 +151,13 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
             <Button
               variant={drawMode.type === 'select' || drawMode.type === null ? 'default' : 'outline'}
               size="sm"
+              className="z-[999] relative"
             >
               <MousePointer className="h-4 w-4 mr-2" />
               Select
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-64 bg-card border-2 z-50" align="start">
+          <PopoverContent className="w-64 bg-card border-2 z-[1000]" align="start">
             <div className="space-y-2">
               <h3 className="font-semibold text-sm">Selection Mode</h3>
               <Button
