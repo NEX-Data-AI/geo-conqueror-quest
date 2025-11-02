@@ -29,9 +29,15 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
   };
 
   const toggleSelectable = (id: string) => {
-    onLayersChange(layers.map(l => 
-      l.id === id ? { ...l, selectable: l.selectable === false ? true : false } : l
-    ));
+    onLayersChange(layers.map(l => {
+      if (l.id === id) {
+        // Toggle this layer's selectable state
+        return { ...l, selectable: l.selectable === false ? true : false };
+      } else {
+        // If making this layer selectable, disable all other layers
+        return { ...l, selectable: false };
+      }
+    }));
   };
 
   const deleteLayer = (id: string) => {

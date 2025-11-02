@@ -602,7 +602,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
 
       // Draw selection rectangle
       const sourceId = 'selection-rectangle';
-      const layerId = 'selection-rectangle-fill';
+      const fillLayerId = 'selection-rectangle-fill';
       const lineLayerId = 'selection-rectangle-line';
 
       const rectangleGeoJSON = {
@@ -629,12 +629,12 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
         });
 
         map.current!.addLayer({
-          id: layerId,
+          id: fillLayerId,
           type: 'fill',
           source: sourceId,
           paint: {
             'fill-color': '#3b82f6',
-            'fill-opacity': 0.1
+            'fill-opacity': 0.15
           }
         });
 
@@ -645,7 +645,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
           paint: {
             'line-color': '#3b82f6',
             'line-width': 2,
-            'line-dasharray': [2, 2]
+            'line-dasharray': [4, 2]
           }
         });
       }
@@ -669,10 +669,13 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
         [bounds[0][0], bounds[0][1]]
       ];
 
-      // Find features within rectangle
+      // Find features within rectangle (only from selectable layers)
       const selectedByLayer = new Map<string, number[]>();
 
       layers.forEach(layer => {
+        // Skip non-selectable layers
+        if (layer.selectable === false) return;
+        
         layer.data.features.forEach((feature, index) => {
           if (isFeatureInPolygon(feature, selectionPolygon)) {
             const existing = selectedByLayer.get(layer.id) || [];
@@ -795,8 +798,12 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
       
       // Clean up
       if (map.current?.getSource('selection-rectangle')) {
-        map.current.removeLayer('selection-rectangle-line');
-        map.current.removeLayer('selection-rectangle-fill');
+        if (map.current?.getLayer('selection-rectangle-line')) {
+          map.current.removeLayer('selection-rectangle-line');
+        }
+        if (map.current?.getLayer('selection-rectangle-fill')) {
+          map.current.removeLayer('selection-rectangle-fill');
+        }
         map.current.removeSource('selection-rectangle');
       }
       canvas.style.cursor = 'default';

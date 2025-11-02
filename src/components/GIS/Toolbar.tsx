@@ -7,6 +7,7 @@ import { useRef, useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
+import { getNextLayerColor } from '@/utils/layerColors';
 // @ts-ignore
 import shp from 'shpjs';
 
@@ -41,6 +42,7 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
         if (extension === 'geojson' || extension === 'json') {
           const text = await file.text();
           const geojson = JSON.parse(text);
+          const layerColor = getNextLayerColor();
           
           const layer: GISLayer = {
             id: `layer-${Date.now()}-${Math.random()}`,
@@ -49,9 +51,10 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
             visible: true,
             opacity: 1,
             data: geojson,
+            selectable: layers.length === 0, // First layer is selectable by default
             style: {
-              color: '#3b82f6',
-              fillColor: '#3b82f6',
+              color: layerColor.color,
+              fillColor: layerColor.fillColor,
               fillOpacity: 0.3,
               weight: 2
             }
@@ -66,6 +69,7 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
           // Shapefile (zipped)
           const arrayBuffer = await file.arrayBuffer();
           const geojson = await shp(arrayBuffer);
+          const layerColor = getNextLayerColor();
           
           const layer: GISLayer = {
             id: `layer-${Date.now()}-${Math.random()}`,
@@ -74,9 +78,10 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
             visible: true,
             opacity: 1,
             data: geojson,
+            selectable: layers.length === 0, // First layer is selectable by default
             style: {
-              color: '#3b82f6',
-              fillColor: '#3b82f6',
+              color: layerColor.color,
+              fillColor: layerColor.fillColor,
               fillOpacity: 0.3,
               weight: 2
             }
