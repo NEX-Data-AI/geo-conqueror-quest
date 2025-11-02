@@ -628,23 +628,25 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
           data: rectangleGeoJSON
         });
 
+        // Add fill layer on top of all other layers
         map.current!.addLayer({
           id: fillLayerId,
           type: 'fill',
           source: sourceId,
           paint: {
             'fill-color': '#3b82f6',
-            'fill-opacity': 0.15
+            'fill-opacity': 0.2
           }
         });
 
+        // Add line layer on top
         map.current!.addLayer({
           id: lineLayerId,
           type: 'line',
           source: sourceId,
           paint: {
             'line-color': '#3b82f6',
-            'line-width': 2,
+            'line-width': 3,
             'line-dasharray': [4, 2]
           }
         });

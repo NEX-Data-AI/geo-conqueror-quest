@@ -96,7 +96,7 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
     const propertyKeys = Array.from(allProperties);
 
     return (
-      <div className="flex-1 overflow-auto">
+      <div className="w-full">
         <table className="w-full text-sm">
           <thead className="bg-muted sticky top-0 z-10">
             <tr>
@@ -179,8 +179,8 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
   };
 
   return (
-    <div className="h-full border-t bg-card flex flex-col">
-      <div className="flex items-center justify-between p-3 border-b bg-muted/50">
+    <div className="h-full border-t bg-card flex flex-col w-full">
+      <div className="flex items-center justify-between p-3 border-b bg-muted/50 flex-shrink-0">
         <h3 className="font-bold">Attributes</h3>
         <Button variant="ghost" size="sm" onClick={onClose}>
           <X className="h-4 w-4" />
@@ -192,8 +192,8 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
           No features available
         </div>
       ) : displayLayers.length === 1 ? (
-        <div className="flex-1 flex flex-col">
-          <div className="p-2 border-b flex items-center justify-between bg-muted/30">
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="p-2 border-b flex items-center justify-between bg-muted/30 flex-shrink-0">
             <span className="text-sm font-medium">{displayLayers[0].name}</span>
             <Tabs 
               value={getFilterMode(displayLayers[0].id)} 
@@ -205,11 +205,13 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
               </TabsList>
             </Tabs>
           </div>
-          {renderLayerTable(displayLayers[0])}
+          <ScrollArea className="flex-1">
+            {renderLayerTable(displayLayers[0])}
+          </ScrollArea>
         </div>
       ) : (
-        <Tabs defaultValue={displayLayers[0].id} className="flex-1 flex flex-col">
-          <TabsList className="mx-3 mt-2">
+        <Tabs defaultValue={displayLayers[0].id} className="flex-1 flex flex-col min-h-0">
+          <TabsList className="mx-3 mt-2 flex-shrink-0">
             {displayLayers.map(layer => {
               const selectedIndices = selectedFeatures.get(layer.id) || [];
               const currentFilterMode = getFilterMode(layer.id);
@@ -225,8 +227,8 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
             })}
           </TabsList>
           {displayLayers.map(layer => (
-            <TabsContent key={layer.id} value={layer.id} className="flex-1 flex flex-col mt-0">
-              <div className="p-2 border-b flex justify-end bg-muted/30">
+            <TabsContent key={layer.id} value={layer.id} className="flex-1 flex flex-col mt-0 min-h-0">
+              <div className="p-2 border-b flex justify-end bg-muted/30 flex-shrink-0">
                 <Tabs 
                   value={getFilterMode(layer.id)} 
                   onValueChange={(v) => setLayerFilterMode(layer.id, v as 'all' | 'selected')}
@@ -237,7 +239,9 @@ const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: Attribu
                   </TabsList>
                 </Tabs>
               </div>
-              {renderLayerTable(layer)}
+              <ScrollArea className="flex-1">
+                {renderLayerTable(layer)}
+              </ScrollArea>
             </TabsContent>
           ))}
         </Tabs>
