@@ -1,31 +1,7 @@
 import { useState, useEffect } from 'react';
+import { PlayerData, Territory, Cache, Resources, InventoryItem, GameData } from '@/types/game';
 
-export interface PlayerData {
-  codename: string;
-  avatar: string; // emoji or data URL
-  level: number;
-  xp: number;
-  reputation: number;
-  homeBase: [number, number] | null;
-  createdAt: string;
-}
-
-interface Territory {
-  id: string;
-  coordinates: [number, number][];
-  level: number;
-}
-
-interface Cache {
-  id: string;
-  coordinates: [number, number];
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
-}
-
-export interface GameData {
-  territories: Territory[];
-  caches: Cache[];
-}
+export type { PlayerData, Territory, Cache, Resources, InventoryItem, GameData };
 
 const PLAYER_KEY = 'geoquest-player';
 const GAME_KEY = 'geoquest-game';
@@ -61,6 +37,32 @@ export const usePlayerData = () => {
     setPlayer(updated);
   };
 
+  const addResources = (resources: Partial<Resources>) => {
+    if (!player) return;
+    const updated = {
+      ...player,
+      resources: {
+        credits: player.resources.credits + (resources.credits || 0),
+        materials: player.resources.materials + (resources.materials || 0),
+        energy: player.resources.energy + (resources.energy || 0)
+      }
+    };
+    setPlayer(updated);
+  };
+
+  const spendResources = (resources: Partial<Resources>) => {
+    if (!player) return;
+    const updated = {
+      ...player,
+      resources: {
+        credits: player.resources.credits - (resources.credits || 0),
+        materials: player.resources.materials - (resources.materials || 0),
+        energy: player.resources.energy - (resources.energy || 0)
+      }
+    };
+    setPlayer(updated);
+  };
+
   const setGameData = (data: GameData) => {
     setGameDataState(data);
     localStorage.setItem(GAME_KEY, JSON.stringify(data));
@@ -82,6 +84,26 @@ export const usePlayerData = () => {
     setGameData(updated);
   };
 
+  const updateTerritory = (territoryId: string, updates: Partial<Territory>) => {
+    const updated = {
+      ...gameData,
+      territories: gameData.territories.map(t =>
+        t.id === territoryId ? { ...t, ...updates } : t
+      )
+    };
+    setGameData(updated);
+  };
+
+  const updateCache = (cacheId: string, updates: Partial<Cache>) => {
+    const updated = {
+      ...gameData,
+      caches: gameData.caches.map(c =>
+        c.id === cacheId ? { ...c, ...updates } : c
+      )
+    };
+    setGameData(updated);
+  };
+
   const clearAllData = () => {
     localStorage.removeItem(PLAYER_KEY);
     localStorage.removeItem(GAME_KEY);
@@ -93,10 +115,14 @@ export const usePlayerData = () => {
     player,
     setPlayer,
     updatePlayer,
+    addResources,
+    spendResources,
     gameData,
     setGameData,
     addTerritory,
     addCache,
+    updateTerritory,
+    updateCache,
     clearAllData
   };
 };

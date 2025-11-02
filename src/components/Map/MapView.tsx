@@ -1,24 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { MapPin, Pencil, Shield, Trash2 } from 'lucide-react';
+import { MapPin, Pencil, Shield, Trash2, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { usePlayerData } from '@/hooks/usePlayerData';
-
-type MapMode = 'view' | 'draw' | 'cache';
-
-interface Territory {
-  id: string;
-  coordinates: [number, number][];
-  level: number;
-}
-
-interface Cache {
-  id: string;
-  coordinates: [number, number];
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
-}
+import { Territory, Cache, MapMode } from '@/types/game';
+import { canCollectCache, generateCacheReward, calculateTerritoryGeneration, getHoursElapsed, getUpgradeCost, canAffordUpgrade } from '@/utils/gameLogic';
+import ResourceDisplay from '@/components/ResourceDisplay';
+import TerritoryUpgradeModal from '@/components/TerritoryUpgradeModal';
 
 const MapView = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -26,7 +16,8 @@ const MapView = () => {
   const [mapMode, setMapMode] = useState<MapMode>('view');
   const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const { player, gameData, addTerritory, addCache } = usePlayerData();
+  const [selectedTerritory, setSelectedTerritory] = useState<Territory | null>(null);
+  const { player, gameData, addTerritory, addCache, updateTerritory, updateCache, addResources, spendResources, updatePlayer } = usePlayerData();
   const { territories, caches } = gameData;
 
   // Initialize map
@@ -162,7 +153,8 @@ const MapView = () => {
         const newCache: Cache = {
           id: `cache-${Date.now()}`,
           coordinates: coords,
-          rarity: 'common'
+          rarity: 'common',
+          collected: false
         };
         addCache(newCache);
 
@@ -170,6 +162,7 @@ const MapView = () => {
         const el = document.createElement('div');
         el.className = 'w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-glow cursor-pointer';
         el.innerHTML = '💎';
+        el.onclick = () => handleCacheClick(newCache);
         
         new maplibregl.Marker({ element: el })
           .setLngLat(coords)
@@ -205,7 +198,9 @@ const MapView = () => {
     const newTerritory: Territory = {
       id: `territory-${Date.now()}`,
       coordinates: drawingPoints,
-      level: 1
+      level: 1,
+      lastHarvest: new Date().toISOString(),
+      defenseRating: 10
     };
 
     addTerritory(newTerritory);
@@ -238,13 +233,95 @@ const MapView = () => {
     }
   };
 
+  const handleCacheClick = (cache: Cache) => {
+    if (cache.collected) {
+      toast({
+        title: "Already Collected",
+        description: "This cache has already been looted",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!userLocation) {
+      toast({
+        title: "Location Unknown",
+        description: "Enable location to collect caches",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!canCollectCache(userLocation, cache.coordinates)) {
+      toast({
+        title: "Too Far Away",
+        description: "Get within 50m of the cache to collect it",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const rewards = generateCacheReward(cache.rarity);
+    addResources(rewards);
+    updatePlayer({ xp: (player?.xp || 0) + rewards.xp });
+    updateCache(cache.id, { collected: true });
+
+    toast({
+      title: "Cache Collected! 🎉",
+      description: `+${rewards.credits} credits, +${rewards.materials} materials, +${rewards.xp} XP`
+    });
+  };
+
+  const handleTerritoryUpgrade = (territoryId: string) => {
+    const territory = territories.find(t => t.id === territoryId);
+    if (!territory || !player) return;
+
+    const cost = getUpgradeCost(territory.level);
+    
+    if (!canAffordUpgrade(player.resources, cost)) {
+      toast({
+        title: "Insufficient Resources",
+        description: "You don't have enough resources to upgrade",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    spendResources(cost);
+    updateTerritory(territoryId, { 
+      level: territory.level + 1,
+      defenseRating: territory.defenseRating + 5
+    });
+
+    toast({
+      title: "Territory Upgraded! ⬆️",
+      description: `Territory upgraded to level ${territory.level + 1}`
+    });
+  };
+
+  const handleTerritoryHarvest = (territoryId: string) => {
+    const territory = territories.find(t => t.id === territoryId);
+    if (!territory) return;
+
+    const hoursElapsed = getHoursElapsed(territory.lastHarvest);
+    const resources = calculateTerritoryGeneration(territory, hoursElapsed);
+
+    addResources(resources);
+    updateTerritory(territoryId, { lastHarvest: new Date().toISOString() });
+
+    toast({
+      title: "Resources Harvested! 🌾",
+      description: `+${resources.credits} credits, +${resources.materials} materials`
+    });
+  };
+
   return (
     <div className="relative w-full h-screen">
       <div ref={mapContainer} className="absolute inset-0" />
       
       {/* Player Info */}
       {player && (
-        <div className="absolute top-4 right-4 bg-card/95 backdrop-blur-sm border-2 border-border rounded-lg p-3 shadow-emboss">
+        <div className="absolute top-4 right-4 bg-card/95 backdrop-blur-sm border-2 border-border rounded-lg p-3 shadow-emboss space-y-3">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-2xl border-2 border-primary/40 overflow-hidden flex-shrink-0">
               {player.avatar.startsWith('data:') ? (
@@ -261,6 +338,7 @@ const MapView = () => {
               </div>
             </div>
           </div>
+          <ResourceDisplay resources={player.resources} className="flex-col gap-2" />
         </div>
       )}
       
@@ -315,13 +393,23 @@ const MapView = () => {
 
         <div className="pt-3 border-t">
           <div className="text-sm space-y-1">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Territories:</span>
+            <div className="flex justify-between cursor-pointer hover:bg-primary/5 p-2 rounded" onClick={() => {
+              if (territories.length > 0) {
+                setSelectedTerritory(territories[0]);
+              }
+            }}>
+              <span className="text-muted-foreground flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Territories:
+              </span>
               <span className="font-bold text-primary">{territories.length}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Caches:</span>
-              <span className="font-bold text-secondary">{caches.length}</span>
+              <span className="text-muted-foreground flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Caches:
+              </span>
+              <span className="font-bold text-secondary">{caches.filter(c => !c.collected).length}/{caches.length}</span>
             </div>
           </div>
         </div>
@@ -337,6 +425,16 @@ const MapView = () => {
           </p>
         </div>
       )}
+
+      {/* Territory Upgrade Modal */}
+      <TerritoryUpgradeModal
+        territory={selectedTerritory}
+        playerResources={player?.resources || { credits: 0, materials: 0, energy: 0 }}
+        open={!!selectedTerritory}
+        onClose={() => setSelectedTerritory(null)}
+        onUpgrade={handleTerritoryUpgrade}
+        onHarvest={handleTerritoryHarvest}
+      />
     </div>
   );
 };

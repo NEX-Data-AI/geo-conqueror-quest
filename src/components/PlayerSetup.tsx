@@ -52,7 +52,13 @@ const PlayerSetup = ({ onComplete }: PlayerSetupProps) => {
       xp: 0,
       reputation: 0,
       homeBase: null,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      resources: {
+        credits: 500,
+        materials: 100,
+        energy: 0
+      },
+      inventory: []
     };
 
     onComplete(newPlayer);
