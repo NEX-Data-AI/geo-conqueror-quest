@@ -149,12 +149,19 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
         
         if (layer.selectable !== false) {
           map.current!.on('click', `${layer.id}-fill`, (e) => {
-            if (drawMode.type === 'select' && e.features && e.features.length > 0) {
+            if (drawMode.type === 'select' && drawMode.selectMode === 'click' && e.features && e.features.length > 0) {
               handleFeatureClick(layer.id, e.features[0]);
             }
           });
+          map.current!.on('mouseenter', `${layer.id}-fill`, () => {
+            if (drawMode.type === 'select') {
+              map.current!.getCanvas().style.cursor = 'pointer';
+            }
+          });
+          map.current!.on('mouseleave', `${layer.id}-fill`, () => {
+            map.current!.getCanvas().style.cursor = '';
+          });
         }
-        map.current!.getCanvas().style.cursor = 'pointer';
       } else if (layer.type === 'line') {
         map.current!.addLayer({
           id: `${layer.id}-line`,
@@ -169,12 +176,19 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
         
         if (layer.selectable !== false) {
           map.current!.on('click', `${layer.id}-line`, (e) => {
-            if (drawMode.type === 'select' && e.features && e.features.length > 0) {
+            if (drawMode.type === 'select' && drawMode.selectMode === 'click' && e.features && e.features.length > 0) {
               handleFeatureClick(layer.id, e.features[0]);
             }
           });
+          map.current!.on('mouseenter', `${layer.id}-line`, () => {
+            if (drawMode.type === 'select') {
+              map.current!.getCanvas().style.cursor = 'pointer';
+            }
+          });
+          map.current!.on('mouseleave', `${layer.id}-line`, () => {
+            map.current!.getCanvas().style.cursor = '';
+          });
         }
-        map.current!.getCanvas().style.cursor = 'pointer';
       } else if (layer.type === 'point') {
         map.current!.addLayer({
           id: `${layer.id}-circle`,
@@ -191,12 +205,19 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
         
         if (layer.selectable !== false) {
           map.current!.on('click', `${layer.id}-circle`, (e) => {
-            if (drawMode.type === 'select' && e.features && e.features.length > 0) {
+            if (drawMode.type === 'select' && drawMode.selectMode === 'click' && e.features && e.features.length > 0) {
               handleFeatureClick(layer.id, e.features[0]);
             }
           });
+          map.current!.on('mouseenter', `${layer.id}-circle`, () => {
+            if (drawMode.type === 'select') {
+              map.current!.getCanvas().style.cursor = 'pointer';
+            }
+          });
+          map.current!.on('mouseleave', `${layer.id}-circle`, () => {
+            map.current!.getCanvas().style.cursor = '';
+          });
         }
-        map.current!.getCanvas().style.cursor = 'pointer';
       }
 
       if (layer.id === selectedLayer && layer.data.features.length > 0) {

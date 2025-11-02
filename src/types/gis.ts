@@ -11,6 +11,8 @@ export interface GISLayer {
     fillColor?: string;
     fillOpacity?: number;
     weight?: number;
+    shape?: 'circle' | 'square' | 'triangle' | 'star' | 'diamond';
+    fillPattern?: 'solid' | 'hatch' | 'dots' | 'grid';
   };
 }
 

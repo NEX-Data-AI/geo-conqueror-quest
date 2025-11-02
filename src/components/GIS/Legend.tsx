@@ -1,13 +1,12 @@
-import { Layers, Eye, EyeOff, Trash2, ChevronUp, ChevronDown, Palette, Edit2, Check, X as XIcon, CheckSquare, Square } from 'lucide-react';
+import { Layers, Eye, EyeOff, Trash2, ChevronUp, ChevronDown, Edit2, Check, X as XIcon, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { GISLayer } from '@/types/gis';
 import { useState } from 'react';
+import StyleEditor from './StyleEditor';
 
 interface LegendProps {
   layers: GISLayer[];
@@ -19,9 +18,9 @@ interface LegendProps {
 }
 
 const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLayerChange, onLayersChange }: LegendProps) => {
-  const [styleOpen, setStyleOpen] = useState<Record<string, boolean>>({});
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
+  const [editingStyleLayer, setEditingStyleLayer] = useState<GISLayer | null>(null);
 
   const toggleVisibility = (id: string) => {
     onLayersChange(layers.map(l => 
@@ -59,10 +58,9 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
     ));
   };
 
-  const updateStyle = (id: string, styleUpdates: Partial<GISLayer['style']>) => {
-    onLayersChange(layers.map(l => 
-      l.id === id ? { ...l, style: { ...l.style, ...styleUpdates } } : l
-    ));
+  const handleStyleUpdate = (updatedLayer: GISLayer) => {
+    onLayersChange(layers.map(l => l.id === updatedLayer.id ? updatedLayer : l));
+    setEditingStyleLayer(updatedLayer);
   };
 
   const startEditName = (id: string, currentName: string) => {
@@ -98,14 +96,17 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
             layers.map((layer) => (
               <div
                 key={layer.id}
-                className={`p-3 rounded-lg border transition-colors ${
+                className={`p-3 rounded-lg border transition-colors cursor-pointer ${
                   activeLayer === layer.id
                     ? 'bg-primary/20 border-primary ring-2 ring-primary/30'
                     : selectedLayer === layer.id
                     ? 'bg-primary/10 border-primary'
                     : 'bg-card hover:bg-muted/50'
                 }`}
-                onClick={() => onLayerSelect(layer.id)}
+                onClick={() => {
+                  onLayerSelect(layer.id);
+                  onActiveLayerChange(layer.id);
+                }}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -155,20 +156,7 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
                         </Button>
                       </div>
                     ) : (
-                      <>
-                        <span className="font-medium text-sm truncate flex-1">{layer.name}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 flex-shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditName(layer.id, layer.name);
-                          }}
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                      </>
+                      <span className="font-medium text-sm truncate flex-1">{layer.name}</span>
                     )}
                   </div>
 
@@ -179,8 +167,21 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
                       className="h-7 w-7 p-0"
                       onClick={(e) => {
                         e.stopPropagation();
+                        startEditName(layer.id, layer.name);
+                      }}
+                      title="Rename layer"
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         moveLayer(layer.id, 'up');
                       }}
+                      title="Move up"
                     >
                       <ChevronUp className="h-4 w-4" />
                     </Button>
@@ -192,6 +193,7 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
                         e.stopPropagation();
                         moveLayer(layer.id, 'down');
                       }}
+                      title="Move down"
                     >
                       <ChevronDown className="h-4 w-4" />
                     </Button>
@@ -203,28 +205,17 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
                         e.stopPropagation();
                         deleteLayer(layer.id);
                       }}
+                      title="Delete layer"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
 
-                {/* Active Layer & Selectable Controls */}
-                <div className="flex items-center gap-3 mt-2 mb-2">
-                  <Button
-                    variant={activeLayer === layer.id ? 'default' : 'outline'}
-                    size="sm"
-                    className="h-7 text-xs flex-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onActiveLayerChange(activeLayer === layer.id ? null : layer.id);
-                    }}
-                  >
-                    {activeLayer === layer.id ? 'Active Layer' : 'Set Active'}
-                  </Button>
-                  
+                {/* Selectable Control & Edit Button */}
+                <div className="flex items-center gap-2 mt-2 mb-2">
                   <div 
-                    className="flex items-center gap-2 cursor-pointer"
+                    className="flex items-center gap-2 cursor-pointer flex-1"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleSelectable(layer.id);
@@ -236,6 +227,19 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
                     />
                     <span className="text-xs text-muted-foreground">Selectable</span>
                   </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingStyleLayer(layer);
+                    }}
+                  >
+                    <Settings className="h-3 w-3" />
+                    <span className="text-xs">Edit Style</span>
+                  </Button>
                 </div>
 
                 <div className="flex items-center gap-2 mt-2">
@@ -257,122 +261,18 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
                   <span>•</span>
                   <span>{layer.data.features.length} features</span>
                 </div>
-
-                {/* Style Controls */}
-                {selectedLayer === layer.id && (
-                  <Collapsible
-                    open={styleOpen[layer.id]}
-                    onOpenChange={(open) => setStyleOpen({ ...styleOpen, [layer.id]: open })}
-                    className="mt-3"
-                  >
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Palette className="h-4 w-4 mr-2" />
-                        Style
-                      </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="mt-2 space-y-3 p-3 bg-muted/30 rounded border">
-                      {/* Fill Color */}
-                      <div className="space-y-1">
-                        <Label htmlFor={`fill-${layer.id}`} className="text-xs">Fill Color</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id={`fill-${layer.id}`}
-                            type="color"
-                            value={layer.style?.fillColor || '#3b82f6'}
-                            onChange={(e) => updateStyle(layer.id, { fillColor: e.target.value })}
-                            className="h-8 w-16 p-1 cursor-pointer"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <Input
-                            type="text"
-                            value={layer.style?.fillColor || '#3b82f6'}
-                            onChange={(e) => updateStyle(layer.id, { fillColor: e.target.value })}
-                            className="h-8 text-xs flex-1"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Stroke Color */}
-                      <div className="space-y-1">
-                        <Label htmlFor={`stroke-${layer.id}`} className="text-xs">
-                          {layer.type === 'point' ? 'Stroke Color' : 'Border Color'}
-                        </Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id={`stroke-${layer.id}`}
-                            type="color"
-                            value={layer.style?.color || '#3b82f6'}
-                            onChange={(e) => updateStyle(layer.id, { color: e.target.value })}
-                            className="h-8 w-16 p-1 cursor-pointer"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <Input
-                            type="text"
-                            value={layer.style?.color || '#3b82f6'}
-                            onChange={(e) => updateStyle(layer.id, { color: e.target.value })}
-                            className="h-8 text-xs flex-1"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Weight/Size */}
-                      <div className="space-y-1">
-                        <Label className="text-xs">
-                          {layer.type === 'point' ? 'Point Size' : 
-                           layer.type === 'line' ? 'Line Width' : 'Border Width'}
-                        </Label>
-                        <div className="flex items-center gap-2">
-                          <Slider
-                            value={[layer.style?.weight || (layer.type === 'point' ? 6 : 2)]}
-                            min={1}
-                            max={layer.type === 'point' ? 20 : 10}
-                            step={1}
-                            className="flex-1"
-                            onValueChange={(value) => updateStyle(layer.id, { weight: value[0] })}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <span className="text-xs w-8 text-right">
-                            {layer.style?.weight || (layer.type === 'point' ? 6 : 2)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Fill Opacity (for polygons) */}
-                      {layer.type === 'polygon' && (
-                        <div className="space-y-1">
-                          <Label className="text-xs">Fill Opacity</Label>
-                          <div className="flex items-center gap-2">
-                            <Slider
-                              value={[(layer.style?.fillOpacity || 0.3) * 100]}
-                              min={0}
-                              max={100}
-                              step={5}
-                              className="flex-1"
-                              onValueChange={(value) => updateStyle(layer.id, { fillOpacity: value[0] / 100 })}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <span className="text-xs w-10 text-right">
-                              {Math.round((layer.style?.fillOpacity || 0.3) * 100)}%
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </CollapsibleContent>
-                  </Collapsible>
-                )}
               </div>
             ))
           )}
         </div>
       </ScrollArea>
+
+      <StyleEditor
+        layer={editingStyleLayer}
+        open={!!editingStyleLayer}
+        onClose={() => setEditingStyleLayer(null)}
+        onUpdate={handleStyleUpdate}
+      />
     </div>
   );
 };

@@ -125,6 +125,7 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
 
   const handleSelectMode = (mode: 'click' | 'polygon') => {
     onDrawModeChange({ type: 'select', purpose: 'feature', selectMode: mode });
+    setShowModeSelector(false);
   };
 
   const handleModeSelect = (purpose: 'annotation' | 'feature', targetLayerId?: string) => {
