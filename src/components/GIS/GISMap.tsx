@@ -385,137 +385,143 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     const layer = layers.find(l => l.id === layerId);
     if (!layer) return;
     
-    const featureIndex = layer.data.features.findIndex(f => 
-      JSON.stringify(f.geometry) === JSON.stringify(feature.geometry)
-    );
+    // Get the feature index from properties
+    const featureIndex = feature.properties?._featureIndex;
     
-    if (featureIndex !== -1) {
-      // Update highlights
-      highlightedFeatures.current.clear();
-      highlightedFeatures.current.set(layerId, [featureIndex]);
-      
-      // Force map to update by refreshing paint properties
-      layers.forEach(lyr => {
-        const highlighted = highlightedFeatures.current.get(lyr.id) || [];
-        
-        if (lyr.type === 'polygon') {
-          if (map.current?.getLayer(`${lyr.id}-fill`)) {
-            map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-color', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#22c55e',
-              lyr.style?.fillColor || '#3b82f6'
-            ]);
-            map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-opacity', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              0.6,
-              (lyr.style?.fillOpacity || 0.3) * lyr.opacity
-            ]);
-          }
-          if (map.current?.getLayer(`${lyr.id}-line`)) {
-            map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#16a34a',
-              lyr.style?.color || '#3b82f6'
-            ]);
-            map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              4,
-              lyr.style?.weight || 2
-            ]);
-          }
-        } else if (lyr.type === 'line') {
-          if (map.current?.getLayer(`${lyr.id}-line`)) {
-            map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#22c55e',
-              lyr.style?.color || '#3b82f6'
-            ]);
-            map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              5,
-              lyr.style?.weight || 2
-            ]);
-          }
-        } else if (lyr.type === 'point') {
-          if (map.current?.getLayer(`${lyr.id}-circle`)) {
-            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-radius', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              10,
-              lyr.style?.weight || 6
-            ]);
-            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-color', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#22c55e',
-              lyr.style?.fillColor || '#3b82f6'
-            ]);
-            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-color', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#16a34a',
-              lyr.style?.color || '#fff'
-            ]);
-            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-width', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              3,
-              2
-            ]);
-          }
-        }
-      });
-      
-      // Notify parent component to open attribute table
-      onFeatureSelect?.(new Map([[layerId, [featureIndex]]]));
-      
-      // Show popup with feature attributes
-      if (activePopup.current) {
-        activePopup.current.remove();
-      }
-      
-      let coordinates: [number, number];
-      if (feature.geometry.type === 'Point') {
-        coordinates = feature.geometry.coordinates as [number, number];
-      } else if (feature.geometry.type === 'Polygon') {
-        const coords = feature.geometry.coordinates[0];
-        coordinates = calculateCentroid(coords) as [number, number];
-      } else if (feature.geometry.type === 'LineString') {
-        const coords = feature.geometry.coordinates;
-        coordinates = coords[Math.floor(coords.length / 2)] as [number, number];
-      } else {
-        return;
-      }
-      
-      const properties = feature.properties || {};
-      const propEntries = Object.entries(properties).filter(([key]) => !key.startsWith('_'));
-      const popupContent = propEntries.length > 0
-        ? `<div class="text-sm">
-            <div class="font-semibold mb-2 pb-2 border-b">Feature Attributes</div>
-            ${propEntries.map(([key, value]) => 
-              `<div class="flex gap-2 py-1">
-                <span class="font-medium">${key}:</span>
-                <span>${value}</span>
-              </div>`
-            ).join('')}
-          </div>`
-        : '<div class="text-sm text-muted-foreground">No attributes</div>';
-      
-      activePopup.current = new maplibregl.Popup({
-        closeButton: true,
-        closeOnClick: false,
-        maxWidth: '300px'
-      })
-        .setLngLat(coordinates)
-        .setHTML(popupContent)
-        .addTo(map.current!);
+    if (featureIndex === undefined || featureIndex === null) {
+      console.error('Feature missing _featureIndex property');
+      return;
     }
+    
+    // Update highlights
+    highlightedFeatures.current.clear();
+    highlightedFeatures.current.set(layerId, [featureIndex]);
+    
+    // Force map to update by refreshing paint properties
+    layers.forEach(lyr => {
+      const highlighted = highlightedFeatures.current.get(lyr.id) || [];
+      
+      if (lyr.type === 'polygon') {
+        if (map.current?.getLayer(`${lyr.id}-fill`)) {
+          map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-color', [
+            'case',
+            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+            '#22c55e',
+            lyr.style?.fillColor || '#3b82f6'
+          ]);
+          map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-opacity', [
+            'case',
+            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+            0.6,
+            (lyr.style?.fillOpacity || 0.3) * lyr.opacity
+          ]);
+        }
+        if (map.current?.getLayer(`${lyr.id}-line`)) {
+          map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
+            'case',
+            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+            '#16a34a',
+            lyr.style?.color || '#3b82f6'
+          ]);
+          map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
+            'case',
+            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+            4,
+            lyr.style?.weight || 2
+          ]);
+        }
+      } else if (lyr.type === 'line') {
+        if (map.current?.getLayer(`${lyr.id}-line`)) {
+          map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
+            'case',
+            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+            '#22c55e',
+            lyr.style?.color || '#3b82f6'
+          ]);
+          map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
+            'case',
+            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+            5,
+            lyr.style?.weight || 2
+          ]);
+        }
+      } else if (lyr.type === 'point') {
+        if (map.current?.getLayer(`${lyr.id}-circle`)) {
+          map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-radius', [
+            'case',
+            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+            10,
+            lyr.style?.weight || 6
+          ]);
+          map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-color', [
+            'case',
+            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+            '#22c55e',
+            lyr.style?.fillColor || '#3b82f6'
+          ]);
+          map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-color', [
+            'case',
+            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+            '#16a34a',
+            lyr.style?.color || '#fff'
+          ]);
+          map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-width', [
+            'case',
+            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
+            3,
+            2
+          ]);
+        }
+      }
+    });
+    
+    // Notify parent component to open attribute table
+    onFeatureSelect?.(new Map([[layerId, [featureIndex]]]));
+    
+    // Show popup with feature attributes
+    if (activePopup.current) {
+      activePopup.current.remove();
+    }
+    
+    // Get the actual feature from the layer data using the index
+    const actualFeature = layer.data.features[featureIndex];
+    if (!actualFeature) return;
+    
+    let coordinates: [number, number];
+    if (actualFeature.geometry.type === 'Point') {
+      coordinates = actualFeature.geometry.coordinates as [number, number];
+    } else if (actualFeature.geometry.type === 'Polygon') {
+      const coords = actualFeature.geometry.coordinates[0];
+      coordinates = calculateCentroid(coords) as [number, number];
+    } else if (actualFeature.geometry.type === 'LineString') {
+      const coords = actualFeature.geometry.coordinates;
+      coordinates = coords[Math.floor(coords.length / 2)] as [number, number];
+    } else {
+      return;
+    }
+    
+    const properties = actualFeature.properties || {};
+    const propEntries = Object.entries(properties).filter(([key]) => !key.startsWith('_'));
+    const popupContent = propEntries.length > 0
+      ? `<div class="text-sm">
+          <div class="font-semibold mb-2 pb-2 border-b">Feature Attributes</div>
+          ${propEntries.map(([key, value]) => 
+            `<div class="flex gap-2 py-1">
+              <span class="font-medium">${key}:</span>
+              <span>${value}</span>
+            </div>`
+          ).join('')}
+        </div>`
+      : '<div class="text-sm text-muted-foreground">No attributes</div>';
+    
+    activePopup.current = new maplibregl.Popup({
+      closeButton: true,
+      closeOnClick: false,
+      maxWidth: '300px'
+    })
+      .setLngLat(coordinates)
+      .setHTML(popupContent)
+      .addTo(map.current!);
   };
 
   // Helper function to check if a feature is inside a polygon
