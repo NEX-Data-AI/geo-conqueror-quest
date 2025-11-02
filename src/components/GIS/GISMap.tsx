@@ -39,13 +39,18 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
       sources: {
         'osm': {
           type: 'raster' as const,
-          tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+          tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
           tileSize: 256,
           attribution: '© OpenStreetMap contributors'
         }
       },
-      layers: [{ id: 'osm', type: 'raster' as const, source: 'osm' }],
-      glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
+      layers: [{
+        id: 'osm',
+        type: 'raster' as const,
+        source: 'osm',
+        minzoom: 0,
+        maxzoom: 22
+      }]
     },
     satellite: {
       version: 8 as const,
@@ -57,8 +62,13 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
           attribution: '© Esri'
         }
       },
-      layers: [{ id: 'satellite', type: 'raster' as const, source: 'satellite' }],
-      glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
+      layers: [{
+        id: 'satellite',
+        type: 'raster' as const,
+        source: 'satellite',
+        minzoom: 0,
+        maxzoom: 22
+      }]
     },
     terrain: {
       version: 8 as const,
@@ -70,8 +80,13 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
           attribution: '© Esri'
         }
       },
-      layers: [{ id: 'terrain', type: 'raster' as const, source: 'terrain' }],
-      glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
+      layers: [{
+        id: 'terrain',
+        type: 'raster' as const,
+        source: 'terrain',
+        minzoom: 0,
+        maxzoom: 22
+      }]
     }
   };
 
