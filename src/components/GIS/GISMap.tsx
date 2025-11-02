@@ -469,8 +469,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
       // Notify parent component to open attribute table
       onFeatureSelect?.(new Map([[layerId, [featureIndex]]]));
       
-      
-      // Show popup
+      // Show popup with feature attributes
       if (activePopup.current) {
         activePopup.current.remove();
       }
@@ -491,25 +490,25 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
       const properties = feature.properties || {};
       const propEntries = Object.entries(properties).filter(([key]) => !key.startsWith('_'));
       const popupContent = propEntries.length > 0
-        ? `<div style="padding: 4px;">
-             <strong>${layer.name}</strong><br/>
-             ${propEntries.map(([key, value]) => 
-               `<div style="margin-top: 4px;"><strong>${key}:</strong> ${value}</div>`
-             ).join('')}
-           </div>`
-        : `<div style="padding: 4px;"><strong>${layer.name}</strong><br/>Feature ${featureIndex + 1}</div>`;
+        ? `<div class="text-sm">
+            <div class="font-semibold mb-2 pb-2 border-b">Feature Attributes</div>
+            ${propEntries.map(([key, value]) => 
+              `<div class="flex gap-2 py-1">
+                <span class="font-medium">${key}:</span>
+                <span>${value}</span>
+              </div>`
+            ).join('')}
+          </div>`
+        : '<div class="text-sm text-muted-foreground">No attributes</div>';
       
-      activePopup.current = new maplibregl.Popup({ closeButton: true, closeOnClick: false })
+      activePopup.current = new maplibregl.Popup({
+        closeButton: true,
+        closeOnClick: false,
+        maxWidth: '300px'
+      })
         .setLngLat(coordinates)
         .setHTML(popupContent)
         .addTo(map.current!);
-      
-      // Also trigger selection for attribute table
-      if (onFeatureSelect) {
-        const selections = new Map<string, number[]>();
-        selections.set(layerId, [featureIndex]);
-        onFeatureSelect(selections);
-      }
     }
   };
 

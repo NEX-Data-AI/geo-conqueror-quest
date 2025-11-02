@@ -78,15 +78,15 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
   };
 
   return (
-    <div className="w-80 border-r bg-card flex flex-col">
-      <div className="p-4 border-b bg-muted/50">
+    <div className="w-80 border-r bg-card flex flex-col h-full overflow-hidden">
+      <div className="p-4 border-b bg-muted/50 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Layers className="h-5 w-5 text-primary" />
           <h2 className="font-bold text-lg">Legend</h2>
         </div>
       </div>
 
-      <ScrollArea className="flex-1 h-0">
+      <ScrollArea className="flex-1 overflow-y-auto">
         <div className="p-2 space-y-2">
           {layers.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground text-sm">
@@ -107,145 +107,152 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
                   onLayerSelect(layer.id);
                   onActiveLayerChange(layer.id);
                 }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 flex-shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleVisibility(layer.id);
-                      }}
-                    >
-                      {layer.visible ? (
-                        <Eye className="h-4 w-4" />
-                      ) : (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                    
-                    {editingName === layer.id ? (
-                      <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
-                        <Input
-                          value={editNameValue}
-                          onChange={(e) => setEditNameValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') saveLayerName(layer.id);
-                            if (e.key === 'Escape') setEditingName(null);
-                          }}
-                          className="h-7 text-sm"
-                          autoFocus
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => saveLayerName(layer.id)}
-                        >
-                          <Check className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setEditingName(null)}
-                        >
-                          <XIcon className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="font-medium text-sm truncate flex-1">{layer.name}</span>
-                    )}
-                  </div>
+               >
+                 <div className="flex items-center justify-between mb-2">
+                   <div className="flex items-center gap-2 flex-1 min-w-0">
+                     <Button
+                       variant="ghost"
+                       size="sm"
+                       className="h-7 w-7 p-0 flex-shrink-0"
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         toggleVisibility(layer.id);
+                       }}
+                     >
+                       {layer.visible ? (
+                         <Eye className="h-4 w-4" />
+                       ) : (
+                         <EyeOff className="h-4 w-4 text-muted-foreground" />
+                       )}
+                     </Button>
+                     
+                     {editingName === layer.id ? (
+                       <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
+                         <Input
+                           value={editNameValue}
+                           onChange={(e) => setEditNameValue(e.target.value)}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter') saveLayerName(layer.id);
+                             if (e.key === 'Escape') setEditingName(null);
+                           }}
+                           className="h-7 text-sm"
+                           autoFocus
+                         />
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           className="h-7 w-7 p-0"
+                           onClick={() => saveLayerName(layer.id)}
+                         >
+                           <Check className="h-3 w-3" />
+                         </Button>
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           className="h-7 w-7 p-0"
+                           onClick={() => setEditingName(null)}
+                         >
+                           <XIcon className="h-3 w-3" />
+                         </Button>
+                       </div>
+                     ) : (
+                       <div className="flex items-center gap-2 flex-1 min-w-0">
+                         <span className="font-medium text-sm truncate flex-1">{layer.name}</span>
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           className="h-7 w-7 p-0"
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             startEditName(layer.id, layer.name);
+                           }}
+                           title="Rename layer"
+                         >
+                           <Edit2 className="h-3 w-3" />
+                         </Button>
+                       </div>
+                     )}
+                   </div>
+                 </div>
 
-                  <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startEditName(layer.id, layer.name);
-                      }}
-                      title="Rename layer"
-                    >
-                      <Edit2 className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveLayer(layer.id, 'up');
-                      }}
-                      title="Move up"
-                    >
-                      <ChevronUp className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveLayer(layer.id, 'down');
-                      }}
-                      title="Move down"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+                 {/* Selectable Control & Edit Button */}
+                 <div className="flex items-center gap-2 mt-2 mb-2">
+                   <div 
+                     className="flex items-center gap-2 cursor-pointer"
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       toggleSelectable(layer.id);
+                     }}
+                   >
+                     <Checkbox 
+                       checked={layer.selectable !== false}
+                       onCheckedChange={() => toggleSelectable(layer.id)}
+                     />
+                     <span className="text-xs text-muted-foreground">Selectable</span>
+                   </div>
+                   
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     className="h-7 px-2"
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       setEditingStyleLayer(layer);
+                     }}
+                   >
+                     <span className="text-xs">Edit</span>
+                   </Button>
+                   
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     className="h-7 px-2 text-destructive hover:text-destructive"
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       deleteLayer(layer.id);
+                     }}
+                   >
+                     <Trash2 className="h-3 w-3" />
+                   </Button>
+                 </div>
 
-                {/* Selectable Control & Edit Button */}
-                <div className="flex items-center gap-2 mt-2 mb-2">
-                  <div 
-                    className="flex items-center gap-2 cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleSelectable(layer.id);
-                    }}
-                  >
-                    <Checkbox 
-                      checked={layer.selectable !== false}
-                      onCheckedChange={() => toggleSelectable(layer.id)}
-                    />
-                    <span className="text-xs text-muted-foreground">Selectable</span>
-                  </div>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingStyleLayer(layer);
-                    }}
-                  >
-                    <span className="text-xs">Edit</span>
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2 text-destructive hover:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteLayer(layer.id);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-
-                <div className="flex gap-2 text-xs text-muted-foreground mt-2">
-                  <span className="capitalize">{layer.type}</span>
-                  <span>•</span>
-                  <span>{layer.data.features.length} features</span>
-                </div>
+                 <div className="flex items-center justify-between mt-2">
+                   <div className="flex gap-2 text-xs text-muted-foreground">
+                     <span className="capitalize">{layer.type}</span>
+                     <span>•</span>
+                     <span>{layer.data.features.length} features</span>
+                   </div>
+                   
+                   {/* Layer Order Controls */}
+                   <div className="flex items-center gap-1">
+                     <Button
+                       variant="ghost"
+                       size="sm"
+                       className="h-6 w-6 p-0"
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         moveLayer(layer.id, 'up');
+                       }}
+                       disabled={layers.findIndex(l => l.id === layer.id) === 0}
+                       title="Move up"
+                     >
+                       <ChevronUp className="h-3 w-3" />
+                     </Button>
+                     <Button
+                       variant="ghost"
+                       size="sm"
+                       className="h-6 w-6 p-0"
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         moveLayer(layer.id, 'down');
+                       }}
+                       disabled={layers.findIndex(l => l.id === layer.id) === layers.length - 1}
+                       title="Move down"
+                     >
+                       <ChevronDown className="h-3 w-3" />
+                     </Button>
+                   </div>
+                 </div>
               </div>
             ))
           )}
