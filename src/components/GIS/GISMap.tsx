@@ -10,14 +10,16 @@ interface GISMapProps {
   selectedLayer: string | null;
   drawMode: 'point' | 'line' | 'polygon' | null;
   onLayersChange: (layers: GISLayer[]) => void;
+  onFeatureSelect?: (layerId: string, featureIndex: number) => void;
 }
 
-const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange }: GISMapProps) => {
+const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSelect }: GISMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [basemap, setBasemap] = useState<'street' | 'satellite' | 'terrain'>('street');
   const drawingPoints = useRef<[number, number][]>([]);
   const drawingMarkers = useRef<maplibregl.Marker[]>([]);
+  const activePopup = useRef<maplibregl.Popup | null>(null);
 
   // Basemap styles
   const basemapStyles = {
@@ -136,6 +138,15 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange }: GISMapProps
             'line-opacity': layer.opacity
           }
         });
+        
+        // Add click handler for polygons
+        map.current!.on('click', `${layer.id}-fill`, (e) => {
+          if (e.features && e.features.length > 0) {
+            const feature = e.features[0];
+            showFeaturePopup(feature, e.lngLat, layer.id);
+          }
+        });
+        map.current!.getCanvas().style.cursor = 'pointer';
       } else if (layer.type === 'line') {
         map.current!.addLayer({
           id: `${layer.id}-line`,
@@ -147,19 +158,37 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange }: GISMapProps
             'line-opacity': layer.opacity
           }
         });
+        
+        // Add click handler for lines
+        map.current!.on('click', `${layer.id}-line`, (e) => {
+          if (e.features && e.features.length > 0) {
+            const feature = e.features[0];
+            showFeaturePopup(feature, e.lngLat, layer.id);
+          }
+        });
+        map.current!.getCanvas().style.cursor = 'pointer';
       } else if (layer.type === 'point') {
         map.current!.addLayer({
           id: `${layer.id}-circle`,
           type: 'circle',
           source: layer.id,
           paint: {
-            'circle-radius': 6,
+            'circle-radius': layer.style?.weight || 6,
             'circle-color': layer.style?.fillColor || '#3b82f6',
             'circle-opacity': layer.opacity,
             'circle-stroke-width': 2,
-            'circle-stroke-color': '#fff'
+            'circle-stroke-color': layer.style?.color || '#fff'
           }
         });
+        
+        // Add click handler for points
+        map.current!.on('click', `${layer.id}-circle`, (e) => {
+          if (e.features && e.features.length > 0) {
+            const feature = e.features[0];
+            showFeaturePopup(feature, e.lngLat, layer.id);
+          }
+        });
+        map.current!.getCanvas().style.cursor = 'pointer';
       }
 
       // Fit bounds to layer if it's selected
@@ -217,6 +246,35 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange }: GISMapProps
       map.current?.off('dblclick', handleDblClick);
     };
   }, [drawMode]);
+
+  const showFeaturePopup = (feature: any, lngLat: maplibregl.LngLat, layerId: string) => {
+    // Close existing popup
+    if (activePopup.current) {
+      activePopup.current.remove();
+    }
+
+    // Build popup content
+    const properties = feature.properties || {};
+    let html = '<div class="p-2 min-w-48"><h3 class="font-bold mb-2 text-sm">Feature Attributes</h3>';
+    
+    if (Object.keys(properties).length === 0) {
+      html += '<p class="text-xs text-gray-500">No attributes</p>';
+    } else {
+      html += '<table class="w-full text-xs">';
+      Object.entries(properties).forEach(([key, value]) => {
+        html += `<tr class="border-b"><td class="py-1 pr-2 font-medium">${key}</td><td class="py-1">${value}</td></tr>`;
+      });
+      html += '</table>';
+    }
+    html += '</div>';
+
+    const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false })
+      .setLngLat(lngLat)
+      .setHTML(html)
+      .addTo(map.current!);
+
+    activePopup.current = popup;
+  };
 
   const completeDrawing = () => {
     const points = [...drawingPoints.current];

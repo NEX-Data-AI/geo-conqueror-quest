@@ -1,8 +1,12 @@
-import { Layers, Eye, EyeOff, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Layers, Eye, EyeOff, Trash2, ChevronUp, ChevronDown, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { GISLayer } from '@/types/gis';
+import { useState } from 'react';
 
 interface LayerPanelProps {
   layers: GISLayer[];
@@ -12,6 +16,8 @@ interface LayerPanelProps {
 }
 
 const LayerPanel = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: LayerPanelProps) => {
+  const [styleOpen, setStyleOpen] = useState<Record<string, boolean>>({});
+
   const toggleVisibility = (id: string) => {
     onLayersChange(layers.map(l => 
       l.id === id ? { ...l, visible: !l.visible } : l
@@ -38,6 +44,12 @@ const LayerPanel = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: La
   const updateOpacity = (id: string, opacity: number) => {
     onLayersChange(layers.map(l => 
       l.id === id ? { ...l, opacity } : l
+    ));
+  };
+
+  const updateStyle = (id: string, styleUpdates: Partial<GISLayer['style']>) => {
+    onLayersChange(layers.map(l => 
+      l.id === id ? { ...l, style: { ...l.style, ...styleUpdates } } : l
     ));
   };
 
@@ -143,6 +155,117 @@ const LayerPanel = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: La
                   <span>•</span>
                   <span>{layer.data.features.length} features</span>
                 </div>
+
+                {/* Style Controls */}
+                {selectedLayer === layer.id && (
+                  <Collapsible
+                    open={styleOpen[layer.id]}
+                    onOpenChange={(open) => setStyleOpen({ ...styleOpen, [layer.id]: open })}
+                    className="mt-3"
+                  >
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Palette className="h-4 w-4 mr-2" />
+                        Style
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 space-y-3 p-3 bg-muted/30 rounded border">
+                      {/* Fill Color */}
+                      <div className="space-y-1">
+                        <Label htmlFor={`fill-${layer.id}`} className="text-xs">Fill Color</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id={`fill-${layer.id}`}
+                            type="color"
+                            value={layer.style?.fillColor || '#3b82f6'}
+                            onChange={(e) => updateStyle(layer.id, { fillColor: e.target.value })}
+                            className="h-8 w-16 p-1 cursor-pointer"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Input
+                            type="text"
+                            value={layer.style?.fillColor || '#3b82f6'}
+                            onChange={(e) => updateStyle(layer.id, { fillColor: e.target.value })}
+                            className="h-8 text-xs flex-1"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Stroke Color */}
+                      <div className="space-y-1">
+                        <Label htmlFor={`stroke-${layer.id}`} className="text-xs">
+                          {layer.type === 'point' ? 'Stroke Color' : 'Border Color'}
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id={`stroke-${layer.id}`}
+                            type="color"
+                            value={layer.style?.color || '#3b82f6'}
+                            onChange={(e) => updateStyle(layer.id, { color: e.target.value })}
+                            className="h-8 w-16 p-1 cursor-pointer"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Input
+                            type="text"
+                            value={layer.style?.color || '#3b82f6'}
+                            onChange={(e) => updateStyle(layer.id, { color: e.target.value })}
+                            className="h-8 text-xs flex-1"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Weight/Size */}
+                      <div className="space-y-1">
+                        <Label className="text-xs">
+                          {layer.type === 'point' ? 'Point Size' : 
+                           layer.type === 'line' ? 'Line Width' : 'Border Width'}
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Slider
+                            value={[layer.style?.weight || (layer.type === 'point' ? 6 : 2)]}
+                            min={1}
+                            max={layer.type === 'point' ? 20 : 10}
+                            step={1}
+                            className="flex-1"
+                            onValueChange={(value) => updateStyle(layer.id, { weight: value[0] })}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <span className="text-xs w-8 text-right">
+                            {layer.style?.weight || (layer.type === 'point' ? 6 : 2)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Fill Opacity (for polygons) */}
+                      {layer.type === 'polygon' && (
+                        <div className="space-y-1">
+                          <Label className="text-xs">Fill Opacity</Label>
+                          <div className="flex items-center gap-2">
+                            <Slider
+                              value={[(layer.style?.fillOpacity || 0.3) * 100]}
+                              min={0}
+                              max={100}
+                              step={5}
+                              className="flex-1"
+                              onValueChange={(value) => updateStyle(layer.id, { fillOpacity: value[0] / 100 })}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <span className="text-xs w-10 text-right">
+                              {Math.round((layer.style?.fillOpacity || 0.3) * 100)}%
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
               </div>
             ))
           )}

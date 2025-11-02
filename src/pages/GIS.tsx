@@ -37,6 +37,10 @@ const GIS = () => {
           selectedLayer={selectedLayer}
           drawMode={drawMode}
           onLayersChange={setLayers}
+          onFeatureSelect={(layerId, featureIndex) => {
+            setSelectedLayer(layerId);
+            setShowAttributeTable(true);
+          }}
         />
 
         {/* Attribute Table - Bottom Panel */}
