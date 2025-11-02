@@ -161,7 +161,7 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
             <div className="space-y-2">
               <h3 className="font-semibold text-sm">Selection Mode</h3>
               <Button
-                variant="outline"
+                variant={drawMode.selectMode === 'click' || !drawMode.selectMode ? 'default' : 'outline'}
                 className="w-full justify-start"
                 onClick={() => handleSelectMode('click')}
               >
@@ -169,7 +169,7 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
                 Click Selection
               </Button>
               <Button
-                variant="outline"
+                variant={drawMode.selectMode === 'polygon' ? 'default' : 'outline'}
                 className="w-full justify-start"
                 onClick={() => handleSelectMode('polygon')}
               >

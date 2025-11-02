@@ -31,6 +31,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
   const drawingMarkers = useRef<maplibregl.Marker[]>([]);
   const activePopup = useRef<maplibregl.Popup | null>(null);
   const selectionPolygonPoints = useRef<[number, number][]>([]);
+  const highlightedFeatures = useRef<Map<string, number[]>>(new Map());
 
   // Basemap styles
   const basemapStyles = {
@@ -153,9 +154,18 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
       layers.forEach(layer => {
         if (!layer.visible || !layer.data.features.length) return;
 
+        // Add _featureIndex to each feature for highlighting
+        const dataWithIndices = {
+          ...layer.data,
+          features: layer.data.features.map((f, idx) => ({
+            ...f,
+            properties: { ...f.properties, _featureIndex: idx }
+          }))
+        };
+
         map.current!.addSource(layer.id, {
           type: 'geojson',
-          data: layer.data
+          data: dataWithIndices
         });
 
         if (layer.type === 'polygon') {
@@ -164,8 +174,18 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             type: 'fill',
             source: layer.id,
             paint: {
-              'fill-color': layer.style?.fillColor || '#3b82f6',
-              'fill-opacity': (layer.style?.fillOpacity || 0.3) * layer.opacity
+              'fill-color': [
+                'case',
+                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
+                '#fbbf24',
+                layer.style?.fillColor || '#3b82f6'
+              ],
+              'fill-opacity': [
+                'case',
+                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
+                0.5,
+                (layer.style?.fillOpacity || 0.3) * layer.opacity
+              ]
             }
           });
           map.current!.addLayer({
@@ -173,8 +193,18 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             type: 'line',
             source: layer.id,
             paint: {
-              'line-color': layer.style?.color || '#3b82f6',
-              'line-width': layer.style?.weight || 2,
+              'line-color': [
+                'case',
+                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
+                '#f59e0b',
+                layer.style?.color || '#3b82f6'
+              ],
+              'line-width': [
+                'case',
+                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
+                3,
+                layer.style?.weight || 2
+              ],
               'line-opacity': layer.opacity
             }
           });
@@ -200,8 +230,18 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             type: 'line',
             source: layer.id,
             paint: {
-              'line-color': layer.style?.color || '#3b82f6',
-              'line-width': layer.style?.weight || 2,
+              'line-color': [
+                'case',
+                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
+                '#f59e0b',
+                layer.style?.color || '#3b82f6'
+              ],
+              'line-width': [
+                'case',
+                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
+                4,
+                layer.style?.weight || 2
+              ],
               'line-opacity': layer.opacity
             }
           });
@@ -227,11 +267,26 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
             type: 'circle',
             source: layer.id,
             paint: {
-              'circle-radius': layer.style?.weight || 6,
-              'circle-color': layer.style?.fillColor || '#3b82f6',
+              'circle-radius': [
+                'case',
+                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
+                10,
+                layer.style?.weight || 6
+              ],
+              'circle-color': [
+                'case',
+                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
+                '#fbbf24',
+                layer.style?.fillColor || '#3b82f6'
+              ],
               'circle-opacity': layer.opacity,
               'circle-stroke-width': 2,
-              'circle-stroke-color': layer.style?.color || '#fff'
+              'circle-stroke-color': [
+                'case',
+                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
+                '#f59e0b',
+                layer.style?.color || '#fff'
+              ]
             }
           });
           
@@ -279,10 +334,64 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
       JSON.stringify(f.geometry) === JSON.stringify(feature.geometry)
     );
     
-    if (featureIndex !== -1 && onFeatureSelect) {
-      const selections = new Map<string, number[]>();
-      selections.set(layerId, [featureIndex]);
-      onFeatureSelect(selections);
+    if (featureIndex !== -1) {
+      // Update highlights
+      highlightedFeatures.current.clear();
+      highlightedFeatures.current.set(layerId, [featureIndex]);
+      
+      // Refresh the layer to show highlight
+      if (map.current?.getSource(layerId)) {
+        const source = map.current.getSource(layerId) as maplibregl.GeoJSONSource;
+        const updatedData = {
+          ...layer.data,
+          features: layer.data.features.map((f, idx) => ({
+            ...f,
+            properties: { ...f.properties, _featureIndex: idx }
+          }))
+        };
+        source.setData(updatedData);
+      }
+      
+      // Show popup
+      if (activePopup.current) {
+        activePopup.current.remove();
+      }
+      
+      let coordinates: [number, number];
+      if (feature.geometry.type === 'Point') {
+        coordinates = feature.geometry.coordinates as [number, number];
+      } else if (feature.geometry.type === 'Polygon') {
+        const coords = feature.geometry.coordinates[0];
+        coordinates = calculateCentroid(coords) as [number, number];
+      } else if (feature.geometry.type === 'LineString') {
+        const coords = feature.geometry.coordinates;
+        coordinates = coords[Math.floor(coords.length / 2)] as [number, number];
+      } else {
+        return;
+      }
+      
+      const properties = feature.properties || {};
+      const propEntries = Object.entries(properties).filter(([key]) => !key.startsWith('_'));
+      const popupContent = propEntries.length > 0
+        ? `<div style="padding: 4px;">
+             <strong>${layer.name}</strong><br/>
+             ${propEntries.map(([key, value]) => 
+               `<div style="margin-top: 4px;"><strong>${key}:</strong> ${value}</div>`
+             ).join('')}
+           </div>`
+        : `<div style="padding: 4px;"><strong>${layer.name}</strong><br/>Feature ${featureIndex + 1}</div>`;
+      
+      activePopup.current = new maplibregl.Popup({ closeButton: true, closeOnClick: false })
+        .setLngLat(coordinates)
+        .setHTML(popupContent)
+        .addTo(map.current!);
+      
+      // Also trigger selection for attribute table
+      if (onFeatureSelect) {
+        const selections = new Map<string, number[]>();
+        selections.set(layerId, [featureIndex]);
+        onFeatureSelect(selections);
+      }
     }
   };
 
@@ -417,12 +526,36 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
         });
       });
 
+      // Update highlights
+      highlightedFeatures.current = selectedByLayer;
+      
+      // Refresh all layers to show highlights
+      layers.forEach(layer => {
+        if (map.current?.getSource(layer.id)) {
+          const source = map.current.getSource(layer.id) as maplibregl.GeoJSONSource;
+          const updatedData = {
+            ...layer.data,
+            features: layer.data.features.map((f, idx) => ({
+              ...f,
+              properties: { ...f.properties, _featureIndex: idx }
+            }))
+          };
+          source.setData(updatedData);
+        }
+      });
+
       // Clean up selection polygon
       if (map.current!.getSource('selection-polygon')) {
         map.current!.removeLayer('selection-polygon-line');
         map.current!.removeSource('selection-polygon');
       }
       markers.forEach(m => m.remove());
+
+      // Close any active popup
+      if (activePopup.current) {
+        activePopup.current.remove();
+        activePopup.current = null;
+      }
 
       onFeatureSelect?.(selectedByLayer);
 
@@ -562,6 +695,8 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
         style={{ 
           cursor: drawMode.type === 'select' && drawMode.selectMode === 'polygon' 
             ? 'crosshair' 
+            : drawMode.type === 'select' 
+            ? 'pointer'
             : 'default' 
         }}
       />
