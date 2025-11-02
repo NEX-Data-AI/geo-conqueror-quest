@@ -197,18 +197,6 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
                     >
                       <ChevronDown className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteLayer(layer.id);
-                      }}
-                      title="Delete layer"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
 
@@ -238,6 +226,18 @@ const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLay
                     }}
                   >
                     <span className="text-xs">Edit</span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-destructive hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteLayer(layer.id);
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
 

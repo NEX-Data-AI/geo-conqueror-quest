@@ -26,6 +26,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [basemap, setBasemap] = useState<'street' | 'satellite' | 'terrain'>('street');
+  const [isChangingBasemap, setIsChangingBasemap] = useState(false);
   const drawingPoints = useRef<[number, number][]>([]);
   const drawingMarkers = useRef<maplibregl.Marker[]>([]);
   const activePopup = useRef<maplibregl.Popup | null>(null);
@@ -97,12 +98,17 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
   useEffect(() => {
     if (!map.current) return;
     
+    setIsChangingBasemap(true);
+    map.current.once('styledata', () => {
+      setIsChangingBasemap(false);
+    });
+    
     map.current.setStyle(basemapStyles[basemap]);
   }, [basemap]);
 
   // Render layers
   useEffect(() => {
-    if (!map.current) return;
+    if (!map.current || isChangingBasemap) return;
 
     const renderLayers = () => {
       if (!map.current?.isStyleLoaded()) {
@@ -246,7 +252,7 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     };
 
     renderLayers();
-  }, [layers, selectedLayer, basemap, drawMode]);
+  }, [layers, selectedLayer, basemap, drawMode, isChangingBasemap]);
 
   const handleFeatureClick = (layerId: string, feature: any) => {
     const layer = layers.find(l => l.id === layerId);
@@ -374,8 +380,8 @@ const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, 
     <div className="relative flex-1">
       <div ref={mapContainer} className="absolute inset-0" />
       
-      {/* Basemap Switcher - Below Zoom Controls */}
-      <div className="absolute top-[110px] right-4">
+      {/* Basemap Switcher */}
+      <div className="absolute top-4 left-4 z-[999]">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 
