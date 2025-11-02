@@ -5,6 +5,7 @@ export interface GISLayer {
   visible: boolean;
   opacity: number;
   data: GeoJSON.FeatureCollection;
+  selectable?: boolean;
   style?: {
     color?: string;
     fillColor?: string;

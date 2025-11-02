@@ -11,8 +11,9 @@ import { Label } from '@/components/ui/label';
 import shp from 'shpjs';
 
 export type DrawingMode = {
-  type: 'point' | 'line' | 'polygon' | null;
+  type: 'point' | 'line' | 'polygon' | 'select' | null;
   purpose: 'annotation' | 'feature';
+  selectMode?: 'click' | 'polygon';
 };
 
 interface ToolbarProps {
@@ -122,6 +123,10 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
     setShowModeSelector(true);
   };
 
+  const handleSelectMode = (mode: 'click' | 'polygon') => {
+    onDrawModeChange({ type: 'select', purpose: 'feature', selectMode: mode });
+  };
+
   const handleModeSelect = (purpose: 'annotation' | 'feature', targetLayerId?: string) => {
     if (!pendingDrawType) return;
     
@@ -140,14 +145,38 @@ const Toolbar = ({ drawMode, layers, onDrawModeChange, onToggleAttributeTable, o
   return (
     <div className="h-14 border-b bg-card flex items-center justify-between px-4">
       <div className="flex items-center gap-2">
-        <Button
-          variant={drawMode.type === null ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => onDrawModeChange({ type: null, purpose: 'feature' })}
-        >
-          <MousePointer className="h-4 w-4 mr-2" />
-          Select
-        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={drawMode.type === 'select' || drawMode.type === null ? 'default' : 'outline'}
+              size="sm"
+            >
+              <MousePointer className="h-4 w-4 mr-2" />
+              Select
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 bg-card border-2 z-50" align="start">
+            <div className="space-y-2">
+              <h3 className="font-semibold text-sm">Selection Mode</h3>
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => handleSelectMode('click')}
+              >
+                <MousePointer className="h-4 w-4 mr-2" />
+                Click Selection
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => handleSelectMode('polygon')}
+              >
+                <Square className="h-4 w-4 mr-2" />
+                Polygon Selection
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <div className="h-8 w-px bg-border mx-1" />
 

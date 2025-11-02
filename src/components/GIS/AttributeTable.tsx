@@ -1,39 +1,38 @@
 import { useState } from 'react';
-import { X, Save, Trash2, Plus } from 'lucide-react';
+import { X, Save, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GISLayer } from '@/types/gis';
 import { toast } from '@/hooks/use-toast';
 
 interface AttributeTableProps {
-  layer: GISLayer | null;
+  layers: GISLayer[];
+  selectedFeatures: Map<string, number[]>;
   onClose: () => void;
   onUpdate: (layer: GISLayer) => void;
 }
 
-const AttributeTable = ({ layer, onClose, onUpdate }: AttributeTableProps) => {
-  const [editingCell, setEditingCell] = useState<{ featureIndex: number; property: string } | null>(null);
+const AttributeTable = ({ layers, selectedFeatures, onClose, onUpdate }: AttributeTableProps) => {
+  const [editingCell, setEditingCell] = useState<{ layerId: string; featureIndex: number; property: string } | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [filterMode, setFilterMode] = useState<'all' | 'selected'>('selected');
 
-  if (!layer) return null;
+  const layersWithSelection = layers.filter(l => selectedFeatures.has(l.id) || selectedFeatures.size === 0);
 
-  const features = layer.data.features;
-  const allProperties = new Set<string>();
-  features.forEach(f => {
-    Object.keys(f.properties || {}).forEach(key => allProperties.add(key));
-  });
-  const propertyKeys = Array.from(allProperties);
-
-  const startEdit = (featureIndex: number, property: string, currentValue: any) => {
-    setEditingCell({ featureIndex, property });
+  const startEdit = (layerId: string, featureIndex: number, property: string, currentValue: any) => {
+    setEditingCell({ layerId, featureIndex, property });
     setEditValue(String(currentValue || ''));
   };
 
   const saveEdit = () => {
     if (!editingCell) return;
 
-    const updatedFeatures = [...features];
+    const layer = layers.find(l => l.id === editingCell.layerId);
+    if (!layer) return;
+
+    const updatedFeatures = [...layer.data.features];
     updatedFeatures[editingCell.featureIndex] = {
       ...updatedFeatures[editingCell.featureIndex],
       properties: {
@@ -57,8 +56,11 @@ const AttributeTable = ({ layer, onClose, onUpdate }: AttributeTableProps) => {
     });
   };
 
-  const deleteFeature = (index: number) => {
-    const updatedFeatures = features.filter((_, i) => i !== index);
+  const deleteFeature = (layerId: string, index: number) => {
+    const layer = layers.find(l => l.id === layerId);
+    if (!layer) return;
+
+    const updatedFeatures = layer.data.features.filter((_, i) => i !== index);
     onUpdate({
       ...layer,
       data: {
@@ -72,20 +74,19 @@ const AttributeTable = ({ layer, onClose, onUpdate }: AttributeTableProps) => {
     });
   };
 
-  return (
-    <div className="h-80 border-t bg-card flex flex-col">
-      <div className="flex items-center justify-between p-3 border-b bg-muted/50">
-        <div className="flex items-center gap-2">
-          <h3 className="font-bold">{layer.name} - Attributes</h3>
-          <span className="text-sm text-muted-foreground">
-            {features.length} feature{features.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
+  const renderLayerTable = (layer: GISLayer) => {
+    const selectedIndices = selectedFeatures.get(layer.id) || [];
+    const features = filterMode === 'selected' && selectedIndices.length > 0
+      ? layer.data.features.filter((_, i) => selectedIndices.includes(i))
+      : layer.data.features;
 
+    const allProperties = new Set<string>();
+    features.forEach(f => {
+      Object.keys(f.properties || {}).forEach(key => allProperties.add(key));
+    });
+    const propertyKeys = Array.from(allProperties);
+
+    return (
       <ScrollArea className="flex-1">
         <table className="w-full text-sm">
           <thead className="bg-muted sticky top-0">
@@ -100,62 +101,128 @@ const AttributeTable = ({ layer, onClose, onUpdate }: AttributeTableProps) => {
             </tr>
           </thead>
           <tbody>
-            {features.map((feature, featureIndex) => (
-              <tr key={featureIndex} className="border-b hover:bg-muted/50">
-                <td className="p-2 text-muted-foreground">{featureIndex + 1}</td>
-                {propertyKeys.map(property => {
-                  const value = feature.properties?.[property];
-                  const isEditing = editingCell?.featureIndex === featureIndex && 
-                                  editingCell?.property === property;
+            {features.map((feature, idx) => {
+              const originalIndex = filterMode === 'selected' 
+                ? layer.data.features.indexOf(feature)
+                : idx;
 
-                  return (
-                    <td
-                      key={property}
-                      className="p-2 cursor-pointer hover:bg-muted/30"
-                      onClick={() => !isEditing && startEdit(featureIndex, property, value)}
+              return (
+                <tr key={originalIndex} className="border-b hover:bg-muted/50">
+                  <td className="p-2 text-muted-foreground">{originalIndex + 1}</td>
+                  {propertyKeys.map(property => {
+                    const value = feature.properties?.[property];
+                    const isEditing = editingCell?.layerId === layer.id &&
+                                    editingCell?.featureIndex === originalIndex && 
+                                    editingCell?.property === property;
+
+                    return (
+                      <td
+                        key={property}
+                        className="p-2 cursor-pointer hover:bg-muted/30"
+                        onClick={() => !isEditing && startEdit(layer.id, originalIndex, property, value)}
+                      >
+                        {isEditing ? (
+                          <div className="flex gap-1">
+                            <Input
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEdit();
+                                if (e.key === 'Escape') setEditingCell(null);
+                              }}
+                              className="h-7 text-sm"
+                              autoFocus
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={saveEdit}
+                            >
+                              <Save className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span>{value !== null && value !== undefined ? String(value) : '-'}</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="p-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      onClick={() => deleteFeature(layer.id, originalIndex)}
                     >
-                      {isEditing ? (
-                        <div className="flex gap-1">
-                          <Input
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') saveEdit();
-                              if (e.key === 'Escape') setEditingCell(null);
-                            }}
-                            className="h-7 text-sm"
-                            autoFocus
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={saveEdit}
-                          >
-                            <Save className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <span>{value !== null && value !== undefined ? String(value) : '-'}</span>
-                      )}
-                    </td>
-                  );
-                })}
-                <td className="p-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                    onClick={() => deleteFeature(featureIndex)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </ScrollArea>
+    );
+  };
+
+  if (layersWithSelection.length === 0) {
+    return (
+      <div className="h-80 border-t bg-card flex flex-col">
+        <div className="flex items-center justify-between p-3 border-b bg-muted/50">
+          <h3 className="font-bold">Attributes</h3>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          No features selected
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-80 border-t bg-card flex flex-col">
+      <div className="flex items-center justify-between p-3 border-b bg-muted/50">
+        <div className="flex items-center gap-3">
+          <h3 className="font-bold">Attributes</h3>
+          <Tabs value={filterMode} onValueChange={(v) => setFilterMode(v as 'all' | 'selected')}>
+            <TabsList className="h-8">
+              <TabsTrigger value="all" className="text-xs">All Features</TabsTrigger>
+              <TabsTrigger value="selected" className="text-xs">Selected Only</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {layersWithSelection.length === 1 ? (
+        renderLayerTable(layersWithSelection[0])
+      ) : (
+        <Tabs defaultValue={layersWithSelection[0].id} className="flex-1 flex flex-col">
+          <TabsList className="mx-3 mt-2">
+            {layersWithSelection.map(layer => (
+              <TabsTrigger key={layer.id} value={layer.id} className="text-xs">
+                {layer.name}
+                <span className="ml-2 text-muted-foreground">
+                  ({filterMode === 'selected' && selectedFeatures.get(layer.id)?.length 
+                    ? selectedFeatures.get(layer.id)!.length 
+                    : layer.data.features.length})
+                </span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {layersWithSelection.map(layer => (
+            <TabsContent key={layer.id} value={layer.id} className="flex-1 flex flex-col mt-0">
+              {renderLayerTable(layer)}
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
     </div>
   );
 };

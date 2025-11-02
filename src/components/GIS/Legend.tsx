@@ -1,22 +1,27 @@
-import { Layers, Eye, EyeOff, Trash2, ChevronUp, ChevronDown, Palette } from 'lucide-react';
+import { Layers, Eye, EyeOff, Trash2, ChevronUp, ChevronDown, Palette, Edit2, Check, X as XIcon, CheckSquare, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Checkbox } from '@/components/ui/checkbox';
 import { GISLayer } from '@/types/gis';
 import { useState } from 'react';
 
 interface LegendProps {
   layers: GISLayer[];
   selectedLayer: string | null;
+  activeLayer: string | null;
   onLayerSelect: (id: string) => void;
+  onActiveLayerChange: (id: string | null) => void;
   onLayersChange: (layers: GISLayer[]) => void;
 }
 
-const Legend = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: LegendProps) => {
+const Legend = ({ layers, selectedLayer, activeLayer, onLayerSelect, onActiveLayerChange, onLayersChange }: LegendProps) => {
   const [styleOpen, setStyleOpen] = useState<Record<string, boolean>>({});
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [editNameValue, setEditNameValue] = useState('');
 
   const toggleVisibility = (id: string) => {
     onLayersChange(layers.map(l => 
@@ -24,9 +29,16 @@ const Legend = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: Legend
     ));
   };
 
+  const toggleSelectable = (id: string) => {
+    onLayersChange(layers.map(l => 
+      l.id === id ? { ...l, selectable: l.selectable === false ? true : false } : l
+    ));
+  };
+
   const deleteLayer = (id: string) => {
     onLayersChange(layers.filter(l => l.id !== id));
     if (selectedLayer === id) onLayerSelect('');
+    if (activeLayer === id) onActiveLayerChange(null);
   };
 
   const moveLayer = (id: string, direction: 'up' | 'down') => {
@@ -53,6 +65,20 @@ const Legend = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: Legend
     ));
   };
 
+  const startEditName = (id: string, currentName: string) => {
+    setEditingName(id);
+    setEditNameValue(currentName);
+  };
+
+  const saveLayerName = (id: string) => {
+    if (editNameValue.trim()) {
+      onLayersChange(layers.map(l => 
+        l.id === id ? { ...l, name: editNameValue.trim() } : l
+      ));
+    }
+    setEditingName(null);
+  };
+
   return (
     <div className="w-80 border-r bg-card flex flex-col">
       <div className="p-4 border-b bg-muted/50">
@@ -72,8 +98,10 @@ const Legend = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: Legend
             layers.map((layer) => (
               <div
                 key={layer.id}
-                className={`p-3 rounded-lg border transition-colors cursor-pointer ${
-                  selectedLayer === layer.id
+                className={`p-3 rounded-lg border transition-colors ${
+                  activeLayer === layer.id
+                    ? 'bg-primary/20 border-primary ring-2 ring-primary/30'
+                    : selectedLayer === layer.id
                     ? 'bg-primary/10 border-primary'
                     : 'bg-card hover:bg-muted/50'
                 }`}
@@ -84,7 +112,7 @@ const Legend = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: Legend
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0"
+                      className="h-7 w-7 p-0 flex-shrink-0"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleVisibility(layer.id);
@@ -96,10 +124,55 @@ const Legend = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: Legend
                         <EyeOff className="h-4 w-4 text-muted-foreground" />
                       )}
                     </Button>
-                    <span className="font-medium text-sm truncate">{layer.name}</span>
+                    
+                    {editingName === layer.id ? (
+                      <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
+                        <Input
+                          value={editNameValue}
+                          onChange={(e) => setEditNameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveLayerName(layer.id);
+                            if (e.key === 'Escape') setEditingName(null);
+                          }}
+                          className="h-7 text-sm"
+                          autoFocus
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => saveLayerName(layer.id)}
+                        >
+                          <Check className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setEditingName(null)}
+                        >
+                          <XIcon className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="font-medium text-sm truncate flex-1">{layer.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditName(layer.id, layer.name);
+                          }}
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                      </>
+                    )}
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -133,6 +206,35 @@ const Legend = ({ layers, selectedLayer, onLayerSelect, onLayersChange }: Legend
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
+                  </div>
+                </div>
+
+                {/* Active Layer & Selectable Controls */}
+                <div className="flex items-center gap-3 mt-2 mb-2">
+                  <Button
+                    variant={activeLayer === layer.id ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs flex-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onActiveLayerChange(activeLayer === layer.id ? null : layer.id);
+                    }}
+                  >
+                    {activeLayer === layer.id ? 'Active Layer' : 'Set Active'}
+                  </Button>
+                  
+                  <div 
+                    className="flex items-center gap-2 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSelectable(layer.id);
+                    }}
+                  >
+                    <Checkbox 
+                      checked={layer.selectable !== false}
+                      onCheckedChange={() => toggleSelectable(layer.id)}
+                    />
+                    <span className="text-xs text-muted-foreground">Selectable</span>
                   </div>
                 </div>
 

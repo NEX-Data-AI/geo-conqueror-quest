@@ -3,30 +3,33 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { GISLayer } from '@/types/gis';
 import { Button } from '@/components/ui/button';
-import { Map as MapIcon, Layers } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export type DrawingMode = {
-  type: 'point' | 'line' | 'polygon' | null;
+  type: 'point' | 'line' | 'polygon' | 'select' | null;
   purpose: 'annotation' | 'feature';
   targetLayerId?: string;
+  selectMode?: 'click' | 'polygon';
 };
 
 interface GISMapProps {
   layers: GISLayer[];
   selectedLayer: string | null;
+  activeLayer: string | null;
   drawMode: DrawingMode;
   onLayersChange: (layers: GISLayer[]) => void;
-  onFeatureSelect?: (layerId: string, featureIndex: number) => void;
+  onFeatureSelect?: (selections: Map<string, number[]>) => void;
 }
 
-const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSelect }: GISMapProps) => {
+const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, onFeatureSelect }: GISMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [basemap, setBasemap] = useState<'street' | 'satellite' | 'terrain'>('street');
   const drawingPoints = useRef<[number, number][]>([]);
   const drawingMarkers = useRef<maplibregl.Marker[]>([]);
   const activePopup = useRef<maplibregl.Popup | null>(null);
+  const selectionPolygonPoints = useRef<[number, number][]>([]);
 
   // Basemap styles
   const basemapStyles = {
@@ -100,7 +103,6 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
   useEffect(() => {
     if (!map.current || !map.current.isStyleLoaded()) return;
 
-    // Remove existing layer sources
     layers.forEach(layer => {
       if (map.current!.getLayer(`${layer.id}-fill`)) {
         map.current!.removeLayer(`${layer.id}-fill`);
@@ -116,7 +118,6 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
       }
     });
 
-    // Add layers
     layers.forEach(layer => {
       if (!layer.visible || !layer.data.features.length) return;
 
@@ -146,13 +147,13 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
           }
         });
         
-        // Add click handler for polygons
-        map.current!.on('click', `${layer.id}-fill`, (e) => {
-          if (e.features && e.features.length > 0) {
-            const feature = e.features[0];
-            showFeaturePopup(feature, e.lngLat, layer.id);
-          }
-        });
+        if (layer.selectable !== false) {
+          map.current!.on('click', `${layer.id}-fill`, (e) => {
+            if (drawMode.type === 'select' && e.features && e.features.length > 0) {
+              handleFeatureClick(layer.id, e.features[0]);
+            }
+          });
+        }
         map.current!.getCanvas().style.cursor = 'pointer';
       } else if (layer.type === 'line') {
         map.current!.addLayer({
@@ -166,13 +167,13 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
           }
         });
         
-        // Add click handler for lines
-        map.current!.on('click', `${layer.id}-line`, (e) => {
-          if (e.features && e.features.length > 0) {
-            const feature = e.features[0];
-            showFeaturePopup(feature, e.lngLat, layer.id);
-          }
-        });
+        if (layer.selectable !== false) {
+          map.current!.on('click', `${layer.id}-line`, (e) => {
+            if (drawMode.type === 'select' && e.features && e.features.length > 0) {
+              handleFeatureClick(layer.id, e.features[0]);
+            }
+          });
+        }
         map.current!.getCanvas().style.cursor = 'pointer';
       } else if (layer.type === 'point') {
         map.current!.addLayer({
@@ -188,17 +189,16 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
           }
         });
         
-        // Add click handler for points
-        map.current!.on('click', `${layer.id}-circle`, (e) => {
-          if (e.features && e.features.length > 0) {
-            const feature = e.features[0];
-            showFeaturePopup(feature, e.lngLat, layer.id);
-          }
-        });
+        if (layer.selectable !== false) {
+          map.current!.on('click', `${layer.id}-circle`, (e) => {
+            if (drawMode.type === 'select' && e.features && e.features.length > 0) {
+              handleFeatureClick(layer.id, e.features[0]);
+            }
+          });
+        }
         map.current!.getCanvas().style.cursor = 'pointer';
       }
 
-      // Fit bounds to layer if it's selected
       if (layer.id === selectedLayer && layer.data.features.length > 0) {
         const bounds = new maplibregl.LngLatBounds();
         layer.data.features.forEach(feature => {
@@ -215,36 +215,49 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
     });
   }, [layers, selectedLayer]);
 
+  const handleFeatureClick = (layerId: string, feature: any) => {
+    const layer = layers.find(l => l.id === layerId);
+    if (!layer) return;
+    
+    const featureIndex = layer.data.features.findIndex(f => 
+      JSON.stringify(f.geometry) === JSON.stringify(feature.geometry)
+    );
+    
+    if (featureIndex !== -1 && onFeatureSelect) {
+      const selections = new Map<string, number[]>();
+      selections.set(layerId, [featureIndex]);
+      onFeatureSelect(selections);
+    }
+  };
+
   // Handle drawing mode
   useEffect(() => {
     if (!map.current) return;
 
     const handleMapClick = (e: maplibregl.MapMouseEvent) => {
-      if (!drawMode.type) return;
+      if (!drawMode.type || drawMode.type === 'select') return;
 
       const coords: [number, number] = [e.lngLat.lng, e.lngLat.lat];
       drawingPoints.current.push(coords);
 
-      // Add marker with color based on purpose
       const markerColor = drawMode.purpose === 'annotation' ? '#10b981' : '#f59e0b';
       const marker = new maplibregl.Marker({ color: markerColor })
         .setLngLat(coords)
         .addTo(map.current!);
       drawingMarkers.current.push(marker);
 
-      // Complete on single click for point
       if (drawMode.type === 'point') {
         completeDrawing();
       }
     };
 
     const handleDblClick = () => {
-      if (drawMode.type && drawingPoints.current.length >= 2) {
+      if (drawMode.type && drawMode.type !== 'select' && drawingPoints.current.length >= 2) {
         completeDrawing();
       }
     };
 
-    if (drawMode.type) {
+    if (drawMode.type && drawMode.type !== 'select') {
       map.current.on('click', handleMapClick);
       map.current.on('dblclick', handleDblClick);
     }
@@ -255,50 +268,9 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
     };
   }, [drawMode]);
 
-  const showFeaturePopup = (feature: any, lngLat: maplibregl.LngLat, layerId: string) => {
-    // Close existing popup
-    if (activePopup.current) {
-      activePopup.current.remove();
-    }
-
-    // Build popup content with proper styling
-    const properties = feature.properties || {};
-    let html = `
-      <div style="background: white; padding: 12px; min-width: 200px; max-width: 350px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
-        <h3 style="font-weight: 700; margin-bottom: 8px; font-size: 14px; color: #1a1a1a; border-bottom: 2px solid #3b82f6; padding-bottom: 4px;">Feature Attributes</h3>
-    `;
-    
-    if (Object.keys(properties).length === 0) {
-      html += '<p style="font-size: 12px; color: #6b7280; margin: 8px 0;">No attributes</p>';
-    } else {
-      html += '<table style="width: 100%; font-size: 12px; border-collapse: collapse;">';
-      Object.entries(properties).forEach(([key, value]) => {
-        html += `
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px 6px 0; font-weight: 600; color: #374151; vertical-align: top;">${key}</td>
-            <td style="padding: 6px 0; color: #1f2937;">${value}</td>
-          </tr>
-        `;
-      });
-      html += '</table>';
-    }
-    html += '</div>';
-
-    const popup = new maplibregl.Popup({ 
-      closeButton: true, 
-      closeOnClick: false,
-      maxWidth: '350px'
-    })
-      .setLngLat(lngLat)
-      .setHTML(html)
-      .addTo(map.current!);
-
-    activePopup.current = popup;
-  };
-
   const completeDrawing = () => {
     const points = [...drawingPoints.current];
-    if (points.length === 0 || !drawMode.type) return;
+    if (points.length === 0 || !drawMode.type || drawMode.type === 'select') return;
 
     let geometry: any;
     let type: 'point' | 'line' | 'polygon' = 'point';
@@ -323,7 +295,6 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
           : {}
       };
 
-      // If adding to existing layer
       if (drawMode.purpose === 'feature' && drawMode.targetLayerId) {
         const targetLayer = layers.find(l => l.id === drawMode.targetLayerId);
         if (targetLayer) {
@@ -337,7 +308,6 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
           onLayersChange(layers.map(l => l.id === drawMode.targetLayerId ? updatedLayer : l));
         }
       } else {
-        // Create new layer
         const isAnnotation = drawMode.purpose === 'annotation';
         const newLayer: GISLayer = {
           id: `layer-${Date.now()}`,
@@ -345,6 +315,7 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
           type,
           visible: true,
           opacity: 1,
+          selectable: true,
           data: {
             type: 'FeatureCollection',
             features: [newFeature]
@@ -361,7 +332,6 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
       }
     }
 
-    // Clear drawing
     drawingPoints.current = [];
     drawingMarkers.current.forEach(m => m.remove());
     drawingMarkers.current = [];
@@ -371,38 +341,35 @@ const GISMap = ({ layers, selectedLayer, drawMode, onLayersChange, onFeatureSele
     <div className="relative flex-1">
       <div ref={mapContainer} className="absolute inset-0" />
       
-      {/* Basemap Switcher - Compact Icon */}
-      <div className="absolute top-4 right-4">
+      {/* Basemap Switcher - Below Zoom Controls */}
+      <div className="absolute top-[110px] right-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 
               variant="default" 
               size="icon"
-              className="h-10 w-10 rounded-lg shadow-lg bg-card border-2 hover:bg-muted"
+              className="h-8 w-8 rounded shadow-lg bg-card border hover:bg-muted"
             >
-              <Layers className="h-5 w-5" />
+              <Layers className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40 bg-card border-2 z-50">
+          <DropdownMenuContent align="end" className="w-40 bg-card border-2 z-[1000]">
             <DropdownMenuItem 
               onClick={() => setBasemap('street')}
               className={basemap === 'street' ? 'bg-primary/10 font-medium' : ''}
             >
-              <MapIcon className="h-4 w-4 mr-2" />
               Street
             </DropdownMenuItem>
             <DropdownMenuItem 
               onClick={() => setBasemap('satellite')}
               className={basemap === 'satellite' ? 'bg-primary/10 font-medium' : ''}
             >
-              <MapIcon className="h-4 w-4 mr-2" />
               Satellite
             </DropdownMenuItem>
             <DropdownMenuItem 
               onClick={() => setBasemap('terrain')}
               className={basemap === 'terrain' ? 'bg-primary/10 font-medium' : ''}
             >
-              <MapIcon className="h-4 w-4 mr-2" />
               Terrain
             </DropdownMenuItem>
           </DropdownMenuContent>
