@@ -1,5 +1,5 @@
-import PlayerSetup from "@/components/PlayerSetup";
-import ResourceDisplay from "@/components/ResourceDisplay";
+// src/pages/Map.tsx
+
 import MapShell from "@/components/Map/MapShell";
 import PlayerHUD from "@/components/GeoQuest/PlayerHUD";
 import TerritoryLayer from "@/components/GeoQuest/TerritoryLayer";
@@ -7,11 +7,14 @@ import QuestMarkers from "@/components/GeoQuest/QuestMarkers";
 import Toolbar from "@/components/UI/Toolbar";
 import { useGeoQuestGame } from "@/hooks/useGeoQuestGame";
 
+import PlayerSetup from "@/components/PlayerSetup";
+import ResourceDisplay from "@/components/ResourceDisplay";
+
 /**
  * GeoQuest Play Mode
  * ------------------
  * Main "Play" route for the game side of NEX Data Map.
- * Uses MapShell + GeoQuest overlays (HUD, territories, markers).
+ * Uses MapShell + GeoQuest overlays (HUD, territories, markers, player UI).
  */
 const Map = () => {
   const { setMode, addXP } = useGeoQuestGame();
@@ -20,7 +23,7 @@ const Map = () => {
     <main className="min-h-screen bg-slate-950 text-slate-50">
       <div className="w-full h-screen relative">
         <MapShell>
-          {/* Top center toolbar */}
+          {/* Top center toolbar: game modes + test XP button */}
           <div className="pointer-events-auto absolute top-4 left-1/2 -translate-x-1/2">
             <Toolbar>
               <button
@@ -55,16 +58,15 @@ const Map = () => {
             </Toolbar>
           </div>
 
-          {/* Map-attached game logic */}
-          <TerritoryLayer />
-          <QuestMarkers />
+          {/* LEFT SIDE: player setup + resources */}
+          <div className="pointer-events-auto absolute left-4 top-20 max-w-xs space-y-4">
+            <div className="rounded-2xl bg-slate-950/90 border border-slate-700 shadow-lg p-4">
+              <PlayerSetup />
+            </div>
 
-          {/* HUD overlay */}
-          <PlayerHUD />
-        </MapShell>
-      </div>
-    </main>
-  );
-};
+            <div className="rounded-2xl bg-slate-950/90 border border-slate-700 shadow-lg p-4">
+              <ResourceDisplay />
+            </div>
+          </div>
 
-export default Map;
+          {/* Map-attached game logic (hook into Ma*
