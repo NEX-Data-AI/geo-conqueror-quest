@@ -18,7 +18,7 @@ type MapViewProps = {
 const DEFAULT_GAME_STYLE =
   "https://api.maptiler.com/maps/dataviz/style.json?key=YOUR_MAPTILER_KEY";
 
-const MapView: React.FC<MapViewProps> = ({ styleUrl }) => {
+const MapView = ({ styleUrl }: MapViewProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>('view');
