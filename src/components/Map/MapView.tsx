@@ -23,30 +23,16 @@ const MapView = () => {
   // Initialize map
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
-
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: {
-        version: 8,
-        sources: {
-          'carto-dark': {
-            type: 'raster',
-            tiles: [
-              'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-              'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-              'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-            ],
-            tileSize: 256,
-            attribution: '© CARTO © OpenStreetMap contributors'
-          }
-        },
-        layers: [{
-          id: 'carto-dark',
-          type: 'raster',
-          source: 'carto-dark',
-          minzoom: 0,
-          maxzoom: 20
-        }],
+      style: "https://api.maptiler.com/maps/dataviz/style.json?key=YOUR_MAPTILER_KEY",
+      center: [-81.7, 27.9],
+      zoom: 7.5,
+      pitch: 0,
+      bearing: 0,
+      attributionControl: false
+    });
+
         glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
       },
       center: [-98.5795, 39.8283],
