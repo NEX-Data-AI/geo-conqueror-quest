@@ -27,7 +27,3 @@ const Map = () => {
 };
 
 export default Map;
-
-      { enableHighAccuracy: true },
-    );
-  }, []);
