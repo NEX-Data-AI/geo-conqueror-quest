@@ -24,7 +24,7 @@ const Map = () => {
     <main className="min-h-screen bg-slate-950 text-slate-50">
       <div className="relative w-full h-screen">
         {/* Resource panel in the top-left */}
-        <div className="absolute top-4 left-4 z-10">
+        <div className="absolute bottom-6 left-6 z-10">
           <ResourceDisplay resources={player.resources} />
         </div>
 
