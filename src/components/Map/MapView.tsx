@@ -28,27 +28,34 @@ const MapView: React.FC<MapViewProps> = ({ styleUrl }) => {
   const { player, gameData, addTerritory, addCache, updateTerritory, updateCache, addResources, spendResources, updatePlayer } = usePlayerData();
   const { territories, caches } = gameData;
 
-  // Initialize map
+    // Initialize map
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
-    map.current = new maplibregl.Map({
+
+    const mapInstance = new maplibregl.Map({
       container: mapContainer.current,
-      style: "https://api.maptiler.com/maps/dataviz/style.json?key=YOUR_MAPTILER_KEY",
-      center: [-81.7, 27.9],
+      style: styleUrl || DEFAULT_GAME_STYLE,
+      center: [-81.7, 27.9], // you can tweak this if needed
       zoom: 7.5,
       pitch: 0,
       bearing: 0,
-      attributionControl: false
+      attributionControl: false,
     });
 
-        glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
-      },
-      center: [-98.5795, 39.8283],
-      zoom: 4,
-      pitch: 0,
-    });
+    map.current = mapInstance;
 
-    map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
+    // Navigation controls (zoom + rotate) in top-right
+    mapInstance.addControl(
+      new maplibregl.NavigationControl({ visualizePitch: true }),
+      "top-right",
+    );
+
+    // Cleanup on unmount
+    return () => {
+      mapInstance.remove();
+      map.current = null;
+    };
+  }, [styleUrl]);
 
     // Get user location
     if (navigator.geolocation) {
