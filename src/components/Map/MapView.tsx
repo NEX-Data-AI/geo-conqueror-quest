@@ -16,7 +16,7 @@ type MapViewProps = {
 
 // Default “gamey / digital” style – swap YOUR_MAPTILER_KEY later
 const DEFAULT_GAME_STYLE =
-  "https://api.maptiler.com/maps/dataviz/style.json?key=YOUR_MAPTILER_KEY";
+  "https://api.maptiler.com/maps/dataviz/style.json?key=EThfgSg4VIEOVBZKY4Cw";
 
 const MapView = ({ styleUrl }: MapViewProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
