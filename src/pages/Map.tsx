@@ -23,7 +23,7 @@ const Map = () => {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-50">
       <div className="relative w-full h-screen">
-        {/* Resource panel in the top-left */}
+        {/* Resource panel moved to bottom-left */}
         <div className="absolute bottom-6 left-6 z-10">
           <ResourceDisplay resources={player.resources} />
         </div>
