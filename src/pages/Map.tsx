@@ -1,3 +1,5 @@
+import PlayerSetup from "@/components/PlayerSetup";
+import ResourceDisplay from "@/components/ResourceDisplay";
 import MapShell from "@/components/Map/MapShell";
 import PlayerHUD from "@/components/GeoQuest/PlayerHUD";
 import TerritoryLayer from "@/components/GeoQuest/TerritoryLayer";
