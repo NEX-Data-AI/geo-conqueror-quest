@@ -69,4 +69,16 @@ const Map = () => {
             </div>
           </div>
 
-          {/* Map-attached game logic (hook into Ma*
+          {/* Map-attached game logic (hook into MapShell via context) */}
+          <TerritoryLayer />
+          <QuestMarkers />
+
+          {/* HUD overlay (XP, level, territories, quests) */}
+          <PlayerHUD />
+        </MapShell>
+      </div>
+    </main>
+  );
+};
+
+export default Map;
