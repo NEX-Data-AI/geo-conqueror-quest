@@ -1,6 +1,6 @@
 import Hero from "@/components/Hero";
-import MiniGameDemo from "@/components/MiniGameDemo";
 import ProjectOverview from "@/components/ProjectOverview";
+import MiniGameDemo from "@/components/MiniGameDemo";
 
 const Index = () => {
   return (
