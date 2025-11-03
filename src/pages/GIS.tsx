@@ -1,85 +1,25 @@
-import { useState, useRef } from 'react';
-import GISMap, { DrawingMode } from '@/components/GIS/GISMap';
-import Legend from '@/components/GIS/Legend';
-import Toolbar from '@/components/GIS/Toolbar';
-import AttributeTable from '@/components/GIS/AttributeTable';
-import { GISLayer } from '@/types/gis';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import MapShell from "@/components/Map/MapShell";
+import LayerTogglePanel from "@/components/GIS/LayerTogglePanel";
+import MeasureTool from "@/components/GIS/MeasureTool";
+import ExportMapButton from "@/components/GIS/ExportMapButton";
 
+/**
+ * Pro GIS Mode
+ * ------------
+ * Main "Pro" route for NEX Data Map.
+ * Uses MapShell + GIS tool overlays (layers, measure, export).
+ */
 const GIS = () => {
-  const [layers, setLayers] = useState<GISLayer[]>([]);
-  const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
-  const [activeLayer, setActiveLayer] = useState<string | null>(null);
-  const [drawMode, setDrawMode] = useState<DrawingMode>({ type: 'select', purpose: 'feature', selectMode: 'rectangle' });
-  const [showAttributeTable, setShowAttributeTable] = useState(false);
-  const [selectedFeatures, setSelectedFeatures] = useState<Map<string, number[]>>(new Map());
-  const clearSelectionRef = useRef<() => void>(() => {});
-
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden">
-      {/* Legend - Left Sidebar */}
-      <Legend
-        layers={layers}
-        selectedLayer={selectedLayer}
-        activeLayer={activeLayer}
-        onLayerSelect={setSelectedLayer}
-        onActiveLayerChange={setActiveLayer}
-        onLayersChange={setLayers}
-      />
-
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Toolbar */}
-        <Toolbar
-          drawMode={drawMode}
-          layers={layers}
-          onDrawModeChange={setDrawMode}
-          onToggleAttributeTable={() => setShowAttributeTable(!showAttributeTable)}
-          onImportData={(newLayers) => setLayers([...layers, ...newLayers])}
-          onClearSelection={() => {
-            setSelectedFeatures(new Map());
-            setShowAttributeTable(false);
-            clearSelectionRef.current();
-          }}
-        />
-
-        {/* Map and Attribute Table */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Map takes remaining space */}
-          <div className={showAttributeTable ? "flex-1 relative overflow-hidden" : "h-full relative overflow-hidden"}>
-            <GISMap
-              layers={layers}
-              selectedLayer={selectedLayer}
-              activeLayer={activeLayer}
-              drawMode={drawMode}
-              onLayersChange={setLayers}
-              onFeatureSelect={(selections) => {
-                setSelectedFeatures(selections);
-                setShowAttributeTable(true);
-              }}
-              onClearSelectionRef={clearSelectionRef}
-            />
-          </div>
-
-          {/* Attribute Table - Full width at bottom when open */}
-          {showAttributeTable && (
-            <div className="h-64 border-t w-full">
-              <AttributeTable
-                layers={layers}
-                selectedFeatures={selectedFeatures}
-                onClose={() => {
-                  setShowAttributeTable(false);
-                  setSelectedFeatures(new Map());
-                }}
-                onUpdate={(updatedLayer) => {
-                  setLayers(layers.map(l => l.id === updatedLayer.id ? updatedLayer : l));
-                }}
-              />
-            </div>
-          )}
-        </div>
+    <main className="min-h-screen bg-slate-950 text-slate-50">
+      <div className="w-full h-screen relative">
+        <MapShell>
+          <LayerTogglePanel />
+          <MeasureTool />
+          <ExportMapButton />
+        </MapShell>
       </div>
-    </div>
+    </main>
   );
 };
 
