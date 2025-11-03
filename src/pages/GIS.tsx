@@ -24,7 +24,6 @@ const GIS = () => {
     Map<string, number[]>
   >(new Map());
 
-  // Used to let Toolbar clear any highlight/selection inside the map
   const clearSelectionRef = useRef<() => void>(() => {});
 
   const handleImportData = (newLayers: GISLayer[]) => {
@@ -66,9 +65,9 @@ const GIS = () => {
           />
         </aside>
 
-        {/* RIGHT: toolbar + map + attribute table */}
+        {/* RIGHT: Toolbar + map + attribute table */}
         <section className="flex-1 flex flex-col">
-          {/* Toolbar at the top */}
+          {/* Toolbar at top */}
           <div className="border-b border-slate-800 bg-slate-950/95 px-4 py-2">
             <Toolbar
               drawMode={drawMode}
@@ -86,7 +85,7 @@ const GIS = () => {
             />
           </div>
 
-          {/* Map + attribute table in resizable vertical panels */}
+          {/* Map + attribute table in resizable vertical group */}
           <ResizablePanelGroup
             direction="vertical"
             className="flex-1 bg-slate-950"
@@ -106,7 +105,7 @@ const GIS = () => {
 
             <ResizableHandle withHandle />
 
-            {/* ATTRIBUTE TABLE AREA */}
+            {/* ATTRIBUTE TABLE */}
             <ResizablePanel defaultSize={30} minSize={15}>
               {showAttributeTable && (
                 <AttributeTable
