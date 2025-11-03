@@ -1,4 +1,4 @@
-# Welcome to your Lovable project
+# NEX Data Map App
 
 ## Project info
 
