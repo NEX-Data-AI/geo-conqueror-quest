@@ -58,37 +58,30 @@ const MapView: React.FC<MapViewProps> = ({ styleUrl }) => {
   }, [styleUrl]);
 
     // Get user location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const coords: [number, number] = [position.coords.longitude, position.coords.latitude];
-          setUserLocation(coords);
-          
-          if (map.current) {
-            map.current.flyTo({ center: coords, zoom: 14 });
-            
-            // Add user marker
-            new maplibregl.Marker({ color: '#10b981' })
-              .setLngLat(coords)
-              .setPopup(new maplibregl.Popup().setHTML('<strong>Your Location</strong>'))
-              .addTo(map.current);
-          }
-        },
-        (error) => {
-          console.warn('Geolocation error:', error);
-          toast({
-            title: "Location Access",
-            description: "Enable location to see your position on the map",
-            variant: "destructive"
-          });
-        }
-      );
-    }
+useEffect(() => {
+  if (!map.current) return;
 
-    return () => {
-      map.current?.remove();
-    };
-  }, []);
+  if (!navigator.geolocation) {
+    console.warn("Geolocation is not supported by this browser.");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const coords: [number, number] = [
+        pos.coords.longitude,
+        pos.coords.latitude,
+      ];
+      setUserLocation(coords);
+      map.current!.setCenter(coords);
+      map.current!.setZoom(12);
+    },
+    (err) => {
+      console.error("Geolocation error:", err);
+    },
+    { enableHighAccuracy: true },
+  );
+}, []);
 
   // Handle map clicks for drawing
   useEffect(() => {
