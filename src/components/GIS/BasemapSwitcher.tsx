@@ -2,26 +2,60 @@ import { useEffect, useState } from "react";
 import { useMap } from "@/components/Map/MapContext";
 import Panel from "@/components/UI/Panel";
 
-type BasemapId = "streets" | "dark" | "satellite";
+// Expanded set of basemaps for GIS use
+export type BasemapId =
+  | "streets"
+  | "light"
+  | "dark"
+  | "outdoor"
+  | "dataviz"
+  | "topo"
+  | "satellite"
+  | "hybrid";
 
-// You can swap these style URLs later for NEX-branded ones
+// Pull MapTiler key from Vite env
+const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY || "YOUR_MAPTILER_KEY";
+
 const BASEMAPS: { id: BasemapId; label: string; styleUrl: string }[] = [
   {
     id: "streets",
     label: "Streets",
-    styleUrl: "https://demotiles.maplibre.org/style.json",
+    styleUrl: `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
+  },
+  {
+    id: "light",
+    label: "Light",
+    styleUrl: `https://api.maptiler.com/maps/basic-v2/style.json?key=${MAPTILER_KEY}`,
   },
   {
     id: "dark",
     label: "Dark",
-    styleUrl:
-      "https://api.maptiler.com/maps/dataviz/style.json?key=YOUR_MAPTILER_KEY",
+    styleUrl: `https://api.maptiler.com/maps/darkmatter/style.json?key=${MAPTILER_KEY}`,
+  },
+  {
+    id: "outdoor",
+    label: "Outdoor",
+    styleUrl: `https://api.maptiler.com/maps/outdoor/style.json?key=${MAPTILER_KEY}`,
+  },
+  {
+    id: "dataviz",
+    label: "Dataviz",
+    styleUrl: `https://api.maptiler.com/maps/dataviz/style.json?key=${MAPTILER_KEY}`,
+  },
+  {
+    id: "topo",
+    label: "Terrain / Topo",
+    styleUrl: `https://api.maptiler.com/maps/topo-v2/style.json?key=${MAPTILER_KEY}`,
   },
   {
     id: "satellite",
     label: "Satellite",
-    styleUrl:
-      "https://api.maptiler.com/maps/hybrid/style.json?key=YOUR_MAPTILER_KEY",
+    styleUrl: `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`,
+  },
+  {
+    id: "hybrid",
+    label: "Satellite Hybrid",
+    styleUrl: `https://api.maptiler.com/maps/hybrid/style.json?key=${MAPTILER_KEY}`,
   },
 ];
 
@@ -30,9 +64,8 @@ const STORAGE_KEY = "nex_gis_basemap_v1";
 /**
  * BasemapSwitcher
  * ----------------
- * Simple dropdown to change the underlying map style.
- * For now uses public/demo MapLibre-style URLs; swap in
- * your own NEX styles or providers when ready.
+ * Dropdown/pill control to change the underlying map style.
+ * Uses MapTiler styles and remembers the last choice in localStorage.
  */
 const BasemapSwitcher = () => {
   const map = useMap();
@@ -53,8 +86,6 @@ const BasemapSwitcher = () => {
     const bm = BASEMAPS.find((b) => b.id === selected);
     if (!bm) return;
 
-    // Changing style will reset custom layers,
-    // so it's best to pick basemap BEFORE measuring, etc.
     map.setStyle(bm.styleUrl);
 
     if (typeof window !== "undefined") {
@@ -90,7 +121,7 @@ const BasemapSwitcher = () => {
             ))}
           </div>
           <p className="text-[10px] text-slate-500 mt-1">
-            Tip: choose your basemap before using measure or overlays.
+            Tip: pick your basemap before measuring or running overlays.
           </p>
         </div>
       </Panel>
