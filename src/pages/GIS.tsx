@@ -1,3 +1,4 @@
+// src/pages/GIS.tsx
 import { useState, useRef, useMemo } from "react";
 import GISMap from "@/components/GIS/GISMap";
 import BasemapSwitcher, {
@@ -7,7 +8,7 @@ import BasemapSwitcher, {
 import GISToolbar, { EditMode } from "@/components/GIS/GISToolbar";
 import SidebarLayers from "@/components/SidebarLayers";
 
-const GISPage = () => {
+const GISPage: React.FC = () => {
   const [activeTool, setActiveTool] = useState<"select" | "edit" | "none">(
     "select",
   );
@@ -20,7 +21,7 @@ const GISPage = () => {
     [basemapId],
   );
 
-  // placeholders for GISMap props
+  // placeholders for GISMap props (will be wired to real data later)
   const [layers, setLayers] = useState<any[]>([]);
   const clearSelectionRef = useRef<() => void>(() => {});
   const handleFeatureSelect = () => {
@@ -64,6 +65,7 @@ const GISPage = () => {
       }
     }
 
+    // activeTool === "none"
     return {
       type: "select" as const,
       purpose: "selection" as const,
@@ -77,7 +79,9 @@ const GISPage = () => {
       <div className="col-span-12 lg:col-span-3 space-y-4">
         <section className="w-full rounded-2xl bg-white border px-3 py-2 shadow-sm">
           <h2 className="text-sm font-semibold text-slate-700 mb-1">Legend</h2>
-          <p className="text-xs text-slate-500">Configure GIS symbology here.</p>
+          <p className="text-xs text-slate-500">
+            Configure GIS symbology here.
+          </p>
         </section>
         <SidebarLayers />
       </div>
@@ -100,4 +104,21 @@ const GISPage = () => {
         </div>
 
         {/* GIS Map */}
-        <div className="h-[calc(100vh-2rem)] rounded-3xl overflow-hidden b
+        <div className="h-[calc(100vh-2rem)] rounded-3xl overflow-hidden border bg-slate-200 shadow">
+          <GISMap
+            layers={layers}
+            selectedLayer={null}
+            activeLayer={null}
+            drawMode={drawMode}
+            onLayersChange={setLayers}
+            onFeatureSelect={handleFeatureSelect}
+            onClearSelectionRef={clearSelectionRef}
+            basemapStyle={basemapStyle}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GISPage;
