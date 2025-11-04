@@ -54,7 +54,7 @@ const GISMap: React.FC = () => {
   return (
     <div className="min-h-screen w-full grid grid-cols-12 gap-4 p-4 bg-slate-50">
       {/* LEFT SIDEBAR (Legend + Basemap + Layers) */}
-      <div className="col-span-12 lg:col-span-3 space-y-4">
+      <div className="col-span-12 lg:col-span-3 space-y-*">
         {/* Legend placeholder – swap in your real legend later */}
         <section className="w-full rounded-2xl bg-white border px-3 py-2 shadow-sm">
           <h2 className="text-sm font-semibold text-slate-700 mb-1">Legend</h2>
