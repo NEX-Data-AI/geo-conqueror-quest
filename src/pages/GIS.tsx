@@ -1,6 +1,9 @@
 import { useState, useRef, useMemo } from "react";
 import GISMap from "@/components/GIS/GISMap";
-import BasemapSwitcher from "@/components/GIS/BasemapSwitcher";
+import BasemapSwitcher, {
+  BasemapId,
+  getBasemapStyleUrl,
+} from "@/components/GIS/BasemapSwitcher";
 import GISToolbar, { EditMode } from "@/components/GIS/GISToolbar";
 import SidebarLayers from "@/components/SidebarLayers";
 
@@ -9,6 +12,13 @@ const GISPage = () => {
     "select",
   );
   const [editMode, setEditMode] = useState<EditMode>("none");
+
+  // Basemap selection
+  const [basemapId, setBasemapId] = useState<BasemapId>("streets");
+  const basemapStyle = useMemo(
+    () => getBasemapStyleUrl(basemapId),
+    [basemapId],
+  );
 
   // placeholders for GISMap props
   const [layers, setLayers] = useState<any[]>([]);
@@ -19,7 +29,6 @@ const GISPage = () => {
 
   // Map toolbar state -> GISMap DrawingMode
   const drawMode = useMemo(() => {
-    // Default: rectangle selection
     if (activeTool === "select") {
       return {
         type: "select" as const,
@@ -31,27 +40,21 @@ const GISPage = () => {
     if (activeTool === "edit") {
       switch (editMode) {
         case "annotation":
-          // For now: single point click to drop annotations
           return {
             type: "draw-point" as const,
             purpose: "feature" as const,
           };
-
         case "existing-layer":
-          // Later we can do vertex editing; for now treat as select
           return {
             type: "select" as const,
             purpose: "selection" as const,
             selectMode: "rectangle" as const,
           };
-
         case "new-layer":
-          // Basic polygon drawing as a starting point
           return {
             type: "draw-polygon" as const,
             purpose: "feature" as const,
           };
-
         default:
           return {
             type: "select" as const,
@@ -61,7 +64,6 @@ const GISPage = () => {
       }
     }
 
-    // activeTool === "none"
     return {
       type: "select" as const,
       purpose: "selection" as const,
@@ -94,25 +96,8 @@ const GISPage = () => {
 
         {/* Basemap Switcher (top-left of map) */}
         <div className="absolute top-4 left-4 z-20">
-          <BasemapSwitcher />
+          <BasemapSwitcher value={basemapId} onChange={setBasemapId} />
         </div>
 
         {/* GIS Map */}
-        <div className="h-[calc(100vh-2rem)] rounded-3xl overflow-hidden border bg-slate-200 shadow">
-          <GISMap
-            layers={layers}
-            selectedLayer={null}
-            activeLayer={null}
-            drawMode={drawMode}
-            onLayersChange={setLayers}
-            onFeatureSelect={handleFeatureSelect}
-            onClearSelectionRef={clearSelectionRef}
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default GISPage;
-
+        <div className="h-[calc(100vh-2rem)] rounded-3xl overflow-hidden b
