@@ -1,972 +1,217 @@
-import { useEffect, useRef, useState } from 'react';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
-import { GISLayer } from '@/types/gis';
-import { Button } from '@/components/ui/button';
-import { Layers } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useEffect, useRef } from "react";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import type { FeatureCollection, Geometry } from "geojson";
+import { GISLayer } from "@/types/gis";
 
 export type DrawingMode = {
-  type: 'point' | 'line' | 'polygon' | 'select' | null;
-  purpose: 'annotation' | 'feature';
-  targetLayerId?: string;
-  selectMode?: 'click' | 'rectangle';
+  type: "select" | "draw-point" | "draw-line" | "draw-polygon";
+  purpose: "feature" | "selection";
+  selectMode?: "rectangle" | "polygon";
 };
 
-interface GISMapProps {
+type GISMapProps = {
   layers: GISLayer[];
   selectedLayer: string | null;
   activeLayer: string | null;
   drawMode: DrawingMode;
   onLayersChange: (layers: GISLayer[]) => void;
-  onFeatureSelect?: (selections: Map<string, number[]>) => void;
-  onClearSelectionRef?: React.MutableRefObject<() => void>;
-}
+  onFeatureSelect: (selection: Map<string, number[]>) => void;
+  onClearSelectionRef: React.MutableRefObject<() => void>;
+};
 
-const GISMap = ({ layers, selectedLayer, activeLayer, drawMode, onLayersChange, onFeatureSelect, onClearSelectionRef }: GISMapProps) => {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<maplibregl.Map | null>(null);
-  const [basemap, setBasemap] = useState<'street' | 'satellite' | 'terrain'>('street');
-  const isInitialMount = useRef(true);
-  const drawingPoints = useRef<[number, number][]>([]);
-  const drawingMarkers = useRef<maplibregl.Marker[]>([]);
-  const activePopup = useRef<maplibregl.Popup | null>(null);
-  const selectionPolygonPoints = useRef<[number, number][]>([]);
-  const highlightedFeatures = useRef<Map<string, number[]>>(new Map());
+const GIS_BASEMAP_STYLE =
+  "https://api.maptiler.com/maps/streets/style.json?key=EThfgSg4VIEOVBZKY4Cw";
 
-  // Basemap styles
-  const basemapStyles = {
-    street: {
-      version: 8 as const,
-      sources: {
-        'osm': {
-          type: 'raster' as const,
-          tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
-          tileSize: 256,
-          attribution: '© OpenStreetMap contributors'
-        }
-      },
-      layers: [{
-        id: 'osm',
-        type: 'raster' as const,
-        source: 'osm',
-        minzoom: 0,
-        maxzoom: 22
-      }]
-    },
-    satellite: {
-      version: 8 as const,
-      sources: {
-        'satellite': {
-          type: 'raster' as const,
-          tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-          tileSize: 256,
-          attribution: '© Esri'
-        }
-      },
-      layers: [{
-        id: 'satellite',
-        type: 'raster' as const,
-        source: 'satellite',
-        minzoom: 0,
-        maxzoom: 22
-      }]
-    },
-    terrain: {
-      version: 8 as const,
-      sources: {
-        'terrain': {
-          type: 'raster' as const,
-          tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}'],
-          tileSize: 256,
-          attribution: '© Esri'
-        }
-      },
-      layers: [{
-        id: 'terrain',
-        type: 'raster' as const,
-        source: 'terrain',
-        minzoom: 0,
-        maxzoom: 22
-      }]
-    }
-  };
+const GISMap = ({
+  layers,
+  selectedLayer,
+  activeLayer,
+  drawMode,
+  onLayersChange,
+  onFeatureSelect,
+  onClearSelectionRef,
+}: GISMapProps) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
 
-  // Setup clear selection function
+  // Initialize map once
   useEffect(() => {
-    if (onClearSelectionRef) {
-      onClearSelectionRef.current = () => {
-        // Close any active popups
-        if (activePopup.current) {
-          activePopup.current.remove();
-          activePopup.current = null;
-        }
-        
-        // Clear highlighted features
-        highlightedFeatures.current.clear();
-        
-        // Reset all layer paint properties to default
-        layers.forEach(lyr => {
-          if (lyr.type === 'polygon') {
-            if (map.current?.getLayer(`${lyr.id}-fill`)) {
-              map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-color', lyr.style?.fillColor || '#3b82f6');
-              map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-opacity', (lyr.style?.fillOpacity || 0.3) * lyr.opacity);
-            }
-            if (map.current?.getLayer(`${lyr.id}-line`)) {
-              map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', lyr.style?.color || '#3b82f6');
-              map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', lyr.style?.weight || 2);
-            }
-          } else if (lyr.type === 'line') {
-            if (map.current?.getLayer(`${lyr.id}-line`)) {
-              map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', lyr.style?.color || '#3b82f6');
-              map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', lyr.style?.weight || 2);
-            }
-          } else if (lyr.type === 'point') {
-            if (map.current?.getLayer(`${lyr.id}-circle`)) {
-              map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-radius', lyr.style?.weight || 6);
-              map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-color', lyr.style?.fillColor || '#3b82f6');
-              map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-color', lyr.style?.color || '#fff');
-              map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-width', 2);
-            }
-          }
-        });
-        
-        // Close any open popups
-        if (activePopup.current) {
-          activePopup.current.remove();
-          activePopup.current = null;
-        }
-      };
-    }
-  }, [layers, onClearSelectionRef]);
+    if (!containerRef.current || mapRef.current) return;
 
-  // Initialize map
-  useEffect(() => {
-    if (!mapContainer.current || map.current) return;
-
-    map.current = new maplibregl.Map({
-      container: mapContainer.current,
-      style: basemapStyles['street'],
-      center: [-98.5795, 39.8283],
-      zoom: 4
+    const mapInstance = new maplibregl.Map({
+      container: containerRef.current,
+      style: GIS_BASEMAP_STYLE,
+      center: [-81.7, 27.9], // Florida-ish; tweak as needed
+      zoom: 7.5,
+      pitch: 0,
+      bearing: 0,
+      attributionControl: false,
     });
 
-    map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
-    map.current.addControl(new maplibregl.ScaleControl(), 'bottom-left');
+    mapInstance.addControl(
+      new maplibregl.NavigationControl({ visualizePitch: true }),
+      "top-right",
+    );
+
+    mapRef.current = mapInstance;
 
     return () => {
-      map.current?.remove();
-      map.current = null;
+      mapInstance.remove();
+      mapRef.current = null;
     };
   }, []);
 
-  // Handle basemap changes (skip initial mount)
+  // Sync layers -> MapLibre sources/layers
   useEffect(() => {
-    if (!map.current) return;
-    
-    // Skip the first run since map is initialized with 'street' basemap
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
+    const map = mapRef.current;
+    if (!map) return;
 
-    map.current.setStyle(basemapStyles[basemap]);
-  }, [basemap]);
+    layers.forEach((layer) => {
+      const sourceId = `gis-source-${layer.id}`;
+      const layerId = `gis-layer-${layer.id}`;
 
-  // Render layers whenever they change or basemap changes
-  useEffect(() => {
-    if (!map.current) return;
-
-    const renderLayers = () => {
-      if (!map.current?.isStyleLoaded()) {
-        setTimeout(renderLayers, 50);
+      const fc = (layer as any).data as FeatureCollection<Geometry> | undefined;
+      if (!fc) {
+        // No data yet, skip rendering
         return;
       }
 
-      // Remove existing layers
-      layers.forEach(layer => {
-        if (map.current!.getLayer(`${layer.id}-fill`)) {
-          map.current!.removeLayer(`${layer.id}-fill`);
-        }
-        if (map.current!.getLayer(`${layer.id}-line`)) {
-          map.current!.removeLayer(`${layer.id}-line`);
-        }
-        if (map.current!.getLayer(`${layer.id}-circle`)) {
-          map.current!.removeLayer(`${layer.id}-circle`);
-        }
-        if (map.current!.getSource(layer.id)) {
-          map.current!.removeSource(layer.id);
-        }
-      });
-
-      // Add layers
-      layers.forEach(layer => {
-        if (!layer.visible || !layer.data.features.length) return;
-
-        // Add _featureIndex to each feature for highlighting
-        const dataWithIndices = {
-          ...layer.data,
-          features: layer.data.features.map((f, idx) => ({
-            ...f,
-            properties: { ...f.properties, _featureIndex: idx }
-          }))
-        };
-
-        map.current!.addSource(layer.id, {
-          type: 'geojson',
-          data: dataWithIndices
-        });
-
-        if (layer.type === 'polygon') {
-          map.current!.addLayer({
-            id: `${layer.id}-fill`,
-            type: 'fill',
-            source: layer.id,
-            paint: {
-              'fill-color': [
-                'case',
-                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
-                '#fbbf24',
-                layer.style?.fillColor || '#3b82f6'
-              ],
-              'fill-opacity': [
-                'case',
-                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
-                0.5,
-                (layer.style?.fillOpacity || 0.3) * layer.opacity
-              ]
-            }
-          });
-          map.current!.addLayer({
-            id: `${layer.id}-line`,
-            type: 'line',
-            source: layer.id,
-            paint: {
-              'line-color': [
-                'case',
-                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
-                '#f59e0b',
-                layer.style?.color || '#3b82f6'
-              ],
-              'line-width': [
-                'case',
-                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
-                3,
-                layer.style?.weight || 2
-              ],
-              'line-opacity': layer.opacity
-            }
-          });
-          
-          if (layer.selectable !== false) {
-            map.current!.on('click', `${layer.id}-fill`, (e) => {
-              if (drawMode.type === 'select' && drawMode.selectMode === 'click' && e.features && e.features.length > 0) {
-                handleFeatureClick(layer.id, e.features[0]);
-              }
-            });
-            map.current!.on('mouseenter', `${layer.id}-fill`, () => {
-              if (drawMode.type === 'select' && drawMode.selectMode === 'click') {
-                map.current!.getCanvas().style.cursor = 'pointer';
-              }
-            });
-            map.current!.on('mouseleave', `${layer.id}-fill`, () => {
-              if (drawMode.type === 'select' && drawMode.selectMode === 'click') {
-                map.current!.getCanvas().style.cursor = 'default';
-              }
-            });
-          }
-        } else if (layer.type === 'line') {
-          map.current!.addLayer({
-            id: `${layer.id}-line`,
-            type: 'line',
-            source: layer.id,
-            paint: {
-              'line-color': [
-                'case',
-                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
-                '#f59e0b',
-                layer.style?.color || '#3b82f6'
-              ],
-              'line-width': [
-                'case',
-                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
-                4,
-                layer.style?.weight || 2
-              ],
-              'line-opacity': layer.opacity
-            }
-          });
-          
-          if (layer.selectable !== false) {
-            map.current!.on('click', `${layer.id}-line`, (e) => {
-              if (drawMode.type === 'select' && drawMode.selectMode === 'click' && e.features && e.features.length > 0) {
-                handleFeatureClick(layer.id, e.features[0]);
-              }
-            });
-            map.current!.on('mouseenter', `${layer.id}-line`, () => {
-              if (drawMode.type === 'select' && drawMode.selectMode === 'click') {
-                map.current!.getCanvas().style.cursor = 'pointer';
-              }
-            });
-            map.current!.on('mouseleave', `${layer.id}-line`, () => {
-              if (drawMode.type === 'select' && drawMode.selectMode === 'click') {
-                map.current!.getCanvas().style.cursor = 'default';
-              }
-            });
-          }
-        } else if (layer.type === 'point') {
-          map.current!.addLayer({
-            id: `${layer.id}-circle`,
-            type: 'circle',
-            source: layer.id,
-            paint: {
-              'circle-radius': [
-                'case',
-                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
-                10,
-                layer.style?.weight || 6
-              ],
-              'circle-color': [
-                'case',
-                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
-                '#fbbf24',
-                layer.style?.fillColor || '#3b82f6'
-              ],
-              'circle-opacity': layer.opacity,
-              'circle-stroke-width': 2,
-              'circle-stroke-color': [
-                'case',
-                ['in', ['get', '_featureIndex'], ['literal', highlightedFeatures.current.get(layer.id) || []]],
-                '#f59e0b',
-                layer.style?.color || '#fff'
-              ]
-            }
-          });
-          
-          if (layer.selectable !== false) {
-            map.current!.on('click', `${layer.id}-circle`, (e) => {
-              if (drawMode.type === 'select' && drawMode.selectMode === 'click' && e.features && e.features.length > 0) {
-                handleFeatureClick(layer.id, e.features[0]);
-              }
-            });
-            map.current!.on('mouseenter', `${layer.id}-circle`, () => {
-              if (drawMode.type === 'select' && drawMode.selectMode === 'click') {
-                map.current!.getCanvas().style.cursor = 'pointer';
-              }
-            });
-            map.current!.on('mouseleave', `${layer.id}-circle`, () => {
-              if (drawMode.type === 'select' && drawMode.selectMode === 'click') {
-                map.current!.getCanvas().style.cursor = 'default';
-              }
-            });
-          }
-        }
-
-        if (layer.id === selectedLayer && layer.data.features.length > 0) {
-          const bounds = new maplibregl.LngLatBounds();
-          layer.data.features.forEach(feature => {
-            if (feature.geometry.type === 'Point') {
-              bounds.extend(feature.geometry.coordinates as [number, number]);
-            } else if (feature.geometry.type === 'LineString') {
-              feature.geometry.coordinates.forEach(coord => bounds.extend(coord as [number, number]));
-            } else if (feature.geometry.type === 'Polygon') {
-              feature.geometry.coordinates[0].forEach(coord => bounds.extend(coord as [number, number]));
-            }
-          });
-          map.current!.fitBounds(bounds, { padding: 50 });
-        }
-      });
-    };
-
-    renderLayers();
-  }, [layers, selectedLayer, basemap, drawMode]);
-
-  const handleFeatureClick = (layerId: string, feature: any) => {
-    const layer = layers.find(l => l.id === layerId);
-    if (!layer) return;
-    
-    // Get the feature index from properties
-    const featureIndex = feature.properties?._featureIndex;
-    
-    if (featureIndex === undefined || featureIndex === null) {
-      console.error('Feature missing _featureIndex property');
-      return;
-    }
-    
-    // Update highlights
-    highlightedFeatures.current.clear();
-    highlightedFeatures.current.set(layerId, [featureIndex]);
-    
-    // Force map to update by refreshing paint properties
-    layers.forEach(lyr => {
-      const highlighted = highlightedFeatures.current.get(lyr.id) || [];
-      
-      if (lyr.type === 'polygon') {
-        if (map.current?.getLayer(`${lyr.id}-fill`)) {
-          map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-color', [
-            'case',
-            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-            '#22c55e',
-            lyr.style?.fillColor || '#3b82f6'
-          ]);
-          map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-opacity', [
-            'case',
-            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-            0.6,
-            (lyr.style?.fillOpacity || 0.3) * lyr.opacity
-          ]);
-        }
-        if (map.current?.getLayer(`${lyr.id}-line`)) {
-          map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
-            'case',
-            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-            '#16a34a',
-            lyr.style?.color || '#3b82f6'
-          ]);
-          map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
-            'case',
-            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-            4,
-            lyr.style?.weight || 2
-          ]);
-        }
-      } else if (lyr.type === 'line') {
-        if (map.current?.getLayer(`${lyr.id}-line`)) {
-          map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
-            'case',
-            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-            '#22c55e',
-            lyr.style?.color || '#3b82f6'
-          ]);
-          map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
-            'case',
-            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-            5,
-            lyr.style?.weight || 2
-          ]);
-        }
-      } else if (lyr.type === 'point') {
-        if (map.current?.getLayer(`${lyr.id}-circle`)) {
-          map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-radius', [
-            'case',
-            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-            10,
-            lyr.style?.weight || 6
-          ]);
-          map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-color', [
-            'case',
-            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-            '#22c55e',
-            lyr.style?.fillColor || '#3b82f6'
-          ]);
-          map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-color', [
-            'case',
-            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-            '#16a34a',
-            lyr.style?.color || '#fff'
-          ]);
-          map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-width', [
-            'case',
-            ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-            3,
-            2
-          ]);
-        }
-      }
-    });
-    
-    // Notify parent component to open attribute table
-    onFeatureSelect?.(new Map([[layerId, [featureIndex]]]));
-    
-    // Show popup with feature attributes
-    if (activePopup.current) {
-      activePopup.current.remove();
-    }
-    
-    // Get the actual feature from the layer data using the index
-    const actualFeature = layer.data.features[featureIndex];
-    if (!actualFeature) return;
-    
-    let coordinates: [number, number];
-    if (actualFeature.geometry.type === 'Point') {
-      coordinates = actualFeature.geometry.coordinates as [number, number];
-    } else if (actualFeature.geometry.type === 'Polygon') {
-      const coords = actualFeature.geometry.coordinates[0];
-      coordinates = calculateCentroid(coords) as [number, number];
-    } else if (actualFeature.geometry.type === 'LineString') {
-      const coords = actualFeature.geometry.coordinates;
-      coordinates = coords[Math.floor(coords.length / 2)] as [number, number];
-    } else {
-      return;
-    }
-    
-    const properties = actualFeature.properties || {};
-    const propEntries = Object.entries(properties).filter(([key]) => !key.startsWith('_'));
-    const popupContent = propEntries.length > 0
-      ? `<div class="text-sm">
-          <div class="font-semibold mb-2 pb-2 border-b">Feature Attributes</div>
-          ${propEntries.map(([key, value]) => 
-            `<div class="flex gap-2 py-1">
-              <span class="font-medium">${key}:</span>
-              <span>${value}</span>
-            </div>`
-          ).join('')}
-        </div>`
-      : '<div class="text-sm text-muted-foreground">No attributes</div>';
-    
-    activePopup.current = new maplibregl.Popup({
-      closeButton: true,
-      closeOnClick: false,
-      maxWidth: '300px'
-    })
-      .setLngLat(coordinates)
-      .setHTML(popupContent)
-      .addTo(map.current!);
-  };
-
-  // Helper function to check if a feature is inside a polygon
-  const isFeatureInPolygon = (feature: any, polygon: number[][]): boolean => {
-    const geometry = feature.geometry;
-    
-    if (geometry.type === 'Point') {
-      const point = geometry.coordinates;
-      return pointInPolygon(point, polygon);
-    } else if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
-      // Check if polygon centroid is inside selection
-      const coords = geometry.type === 'Polygon' 
-        ? geometry.coordinates[0] 
-        : geometry.coordinates[0][0];
-      const centroid = calculateCentroid(coords);
-      return pointInPolygon(centroid, polygon);
-    } else if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
-      // Check if any point of line is inside selection
-      const coords = geometry.type === 'LineString' 
-        ? geometry.coordinates 
-        : geometry.coordinates[0];
-      return coords.some((point: number[]) => pointInPolygon(point, polygon));
-    }
-    
-    return false;
-  };
-
-  // Point-in-polygon algorithm (ray casting)
-  const pointInPolygon = (point: number[], polygon: number[][]): boolean => {
-    const [x, y] = point;
-    let inside = false;
-
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const [xi, yi] = polygon[i];
-      const [xj, yj] = polygon[j];
-
-      const intersect = ((yi > y) !== (yj > y)) &&
-        (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-      
-      if (intersect) inside = !inside;
-    }
-
-    return inside;
-  };
-
-  // Calculate centroid of a polygon
-  const calculateCentroid = (coords: number[][]): number[] => {
-    let sumX = 0, sumY = 0;
-    coords.forEach(([x, y]) => {
-      sumX += x;
-      sumY += y;
-    });
-    return [sumX / coords.length, sumY / coords.length];
-  };
-
-  // Handle rectangle selection mode
-  useEffect(() => {
-    if (!map.current || drawMode.type !== 'select' || drawMode.selectMode !== 'rectangle') return;
-
-    let startPoint: { lng: number; lat: number } | null = null;
-    let isDragging = false;
-    const canvas = map.current.getCanvasContainer();
-
-    const handleMouseDown = (e: maplibregl.MapMouseEvent) => {
-      startPoint = e.lngLat;
-      isDragging = true;
-      canvas.style.cursor = 'crosshair';
-    };
-
-    const handleMouseMove = (e: maplibregl.MapMouseEvent) => {
-      if (!isDragging || !startPoint) return;
-
-      const currentPoint = e.lngLat;
-      const bounds = [
-        [Math.min(startPoint.lng, currentPoint.lng), Math.min(startPoint.lat, currentPoint.lat)],
-        [Math.max(startPoint.lng, currentPoint.lng), Math.max(startPoint.lat, currentPoint.lat)]
-      ];
-
-      // Draw selection rectangle
-      const sourceId = 'selection-rectangle';
-      const fillLayerId = 'selection-rectangle-fill';
-      const lineLayerId = 'selection-rectangle-line';
-
-      const rectangleGeoJSON = {
-        type: 'Feature' as const,
-        geometry: {
-          type: 'Polygon' as const,
-          coordinates: [[
-            [bounds[0][0], bounds[0][1]],
-            [bounds[1][0], bounds[0][1]],
-            [bounds[1][0], bounds[1][1]],
-            [bounds[0][0], bounds[1][1]],
-            [bounds[0][0], bounds[0][1]]
-          ]]
-        },
-        properties: {}
-      };
-
-      if (map.current!.getSource(sourceId)) {
-        (map.current!.getSource(sourceId) as maplibregl.GeoJSONSource).setData(rectangleGeoJSON);
+      // Source
+      const existingSource = map.getSource(sourceId) as any;
+      if (existingSource) {
+        existingSource.setData(fc as any);
       } else {
-        map.current!.addSource(sourceId, {
-          type: 'geojson',
-          data: rectangleGeoJSON
-        });
-
-        // Add fill layer on top of all other layers
-        map.current!.addLayer({
-          id: fillLayerId,
-          type: 'fill',
-          source: sourceId,
-          paint: {
-            'fill-color': '#3b82f6',
-            'fill-opacity': 0.2
-          }
-        });
-
-        // Add line layer on top
-        map.current!.addLayer({
-          id: lineLayerId,
-          type: 'line',
-          source: sourceId,
-          paint: {
-            'line-color': '#3b82f6',
-            'line-width': 3,
-            'line-dasharray': [4, 2]
-          }
+        map.addSource(sourceId, {
+          type: "geojson",
+          data: fc as any,
         });
       }
-    };
 
-    const handleMouseUp = (e: maplibregl.MapMouseEvent) => {
-      if (!isDragging || !startPoint) return;
+      // Style decisions based on layer.type (if present)
+      const geomType = (layer as any).type as
+        | "point"
+        | "line"
+        | "polygon"
+        | undefined;
 
-      const currentPoint = e.lngLat;
-      const bounds = [
-        [Math.min(startPoint.lng, currentPoint.lng), Math.min(startPoint.lat, currentPoint.lat)],
-        [Math.max(startPoint.lng, currentPoint.lng), Math.max(startPoint.lat, currentPoint.lat)]
-      ];
+      const baseVisible =
+        (layer as any).visible === undefined ? true : (layer as any).visible;
+      const opacity =
+        (layer as any).opacity === undefined ? 1 : (layer as any).opacity;
 
-      // Create polygon from rectangle bounds for selection
-      const selectionPolygon = [
-        [bounds[0][0], bounds[0][1]],
-        [bounds[1][0], bounds[0][1]],
-        [bounds[1][0], bounds[1][1]],
-        [bounds[0][0], bounds[1][1]],
-        [bounds[0][0], bounds[0][1]]
-      ];
+      const existingLayer = map.getLayer(layerId);
+      if (!existingLayer) {
+        if (geomType === "point") {
+          map.addLayer({
+            id: layerId,
+            type: "circle",
+            source: sourceId,
+            paint: {
+              "circle-radius": 4,
+              "circle-color": "#38bdf8",
+              "circle-opacity": opacity,
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "#020617",
+            },
+          });
+        } else if (geomType === "line") {
+          map.addLayer({
+            id: layerId,
+            type: "line",
+            source: sourceId,
+            paint: {
+              "line-width": 2,
+              "line-color": "#22c55e",
+              "line-opacity": opacity,
+            },
+          });
+        } else {
+          // Default to polygon
+          map.addLayer({
+            id: layerId,
+            type: "fill",
+            source: sourceId,
+            paint: {
+              "fill-color": "#4f46e5",
+              "fill-opacity": 0.25 * opacity,
+              "fill-outline-color": "#818cf8",
+            },
+          });
+        }
+      }
 
-      // Find features within rectangle (only from selectable layers)
-      const selectedByLayer = new Map<string, number[]>();
+      // Visibility
+      map.setLayoutProperty(
+        layerId,
+        "visibility",
+        baseVisible ? "visible" : "none",
+      );
+    });
+  }, [layers]);
 
-      layers.forEach(layer => {
-        // Skip non-selectable layers
-        if (layer.selectable === false) return;
-        
-        layer.data.features.forEach((feature, index) => {
-          if (isFeatureInPolygon(feature, selectionPolygon)) {
-            const existing = selectedByLayer.get(layer.id) || [];
-            selectedByLayer.set(layer.id, [...existing, index]);
+  // Setup selection logic (click to select features)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const handleClick = (e: maplibregl.MapMouseEvent & maplibregl.EventData) => {
+      if (drawMode.type !== "select") {
+        // Drawing behavior could go here; keeping select-only for now
+        return;
+      }
+
+      const selection = new Map<string, number[]>();
+
+      layers.forEach((layer) => {
+        const layerId = `gis-layer-${layer.id}`;
+        const fc = (layer as any).data as FeatureCollection<Geometry> | undefined;
+        if (!fc) return;
+
+        const features = map.queryRenderedFeatures(e.point, { layers: [layerId] });
+        if (!features || features.length === 0) return;
+
+        const layerFeatureIndexes: number[] = [];
+        features.forEach((f) => {
+          const idx = (f.properties?.__index as number | undefined) ?? -1;
+          if (idx >= 0) {
+            layerFeatureIndexes.push(idx);
           }
         });
-      });
 
-      // Update highlights
-      highlightedFeatures.current = selectedByLayer;
-      
-      // Force map to update by refreshing paint properties
-      layers.forEach(lyr => {
-        const highlighted = highlightedFeatures.current.get(lyr.id) || [];
-        
-        if (lyr.type === 'polygon') {
-          if (map.current?.getLayer(`${lyr.id}-fill`)) {
-            map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-color', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#22c55e',
-              lyr.style?.fillColor || '#3b82f6'
-            ]);
-            map.current.setPaintProperty(`${lyr.id}-fill`, 'fill-opacity', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              0.6,
-              (lyr.style?.fillOpacity || 0.3) * lyr.opacity
-            ]);
-          }
-          if (map.current?.getLayer(`${lyr.id}-line`)) {
-            map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#16a34a',
-              lyr.style?.color || '#3b82f6'
-            ]);
-            map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              4,
-              lyr.style?.weight || 2
-            ]);
-          }
-        } else if (lyr.type === 'line') {
-          if (map.current?.getLayer(`${lyr.id}-line`)) {
-            map.current.setPaintProperty(`${lyr.id}-line`, 'line-color', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#22c55e',
-              lyr.style?.color || '#3b82f6'
-            ]);
-            map.current.setPaintProperty(`${lyr.id}-line`, 'line-width', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              5,
-              lyr.style?.weight || 2
-            ]);
-          }
-        } else if (lyr.type === 'point') {
-          if (map.current?.getLayer(`${lyr.id}-circle`)) {
-            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-radius', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              10,
-              lyr.style?.weight || 6
-            ]);
-            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-color', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#22c55e',
-              lyr.style?.fillColor || '#3b82f6'
-            ]);
-            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-color', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              '#16a34a',
-              lyr.style?.color || '#fff'
-            ]);
-            map.current.setPaintProperty(`${lyr.id}-circle`, 'circle-stroke-width', [
-              'case',
-              ['in', ['get', '_featureIndex'], ['literal', highlighted]],
-              3,
-              2
-            ]);
-          }
+        if (layerFeatureIndexes.length > 0) {
+          selection.set(layer.id, layerFeatureIndexes);
         }
       });
-      
-      // Notify parent component to open attribute table
-      onFeatureSelect?.(selectedByLayer);
 
-      // Clean up selection rectangle
-      if (map.current!.getSource('selection-rectangle')) {
-        map.current!.removeLayer('selection-rectangle-line');
-        map.current!.removeLayer('selection-rectangle-fill');
-        map.current!.removeSource('selection-rectangle');
+      if (selection.size > 0) {
+        onFeatureSelect(selection);
       }
-
-      // Close any active popup
-      if (activePopup.current) {
-        activePopup.current.remove();
-        activePopup.current = null;
-      }
-
-      // Reset state
-      startPoint = null;
-      isDragging = false;
-      canvas.style.cursor = 'default';
     };
 
-    map.current.on('mousedown', handleMouseDown);
-    map.current.on('mousemove', handleMouseMove);
-    map.current.on('mouseup', handleMouseUp);
+    map.on("click", handleClick);
+
+    // Provide clear selection hook
+    onClearSelectionRef.current = () => {
+      // At minimum, notify with empty selection
+      onFeatureSelect(new Map());
+    };
 
     return () => {
-      map.current?.off('mousedown', handleMouseDown);
-      map.current?.off('mousemove', handleMouseMove);
-      map.current?.off('mouseup', handleMouseUp);
-      
-      // Clean up
-      if (map.current?.getSource('selection-rectangle')) {
-        if (map.current?.getLayer('selection-rectangle-line')) {
-          map.current.removeLayer('selection-rectangle-line');
-        }
-        if (map.current?.getLayer('selection-rectangle-fill')) {
-          map.current.removeLayer('selection-rectangle-fill');
-        }
-        map.current.removeSource('selection-rectangle');
-      }
-      canvas.style.cursor = 'default';
+      map.off("click", handleClick);
     };
-  }, [drawMode, layers, onFeatureSelect]);
+  }, [layers, drawMode, onFeatureSelect, onClearSelectionRef]);
 
-  // Handle drawing mode
-  useEffect(() => {
-    if (!map.current) return;
-
-    const handleMapClick = (e: maplibregl.MapMouseEvent) => {
-      if (!drawMode.type || drawMode.type === 'select') return;
-
-      const coords: [number, number] = [e.lngLat.lng, e.lngLat.lat];
-      drawingPoints.current.push(coords);
-
-      const markerColor = drawMode.purpose === 'annotation' ? '#10b981' : '#f59e0b';
-      const marker = new maplibregl.Marker({ color: markerColor })
-        .setLngLat(coords)
-        .addTo(map.current!);
-      drawingMarkers.current.push(marker);
-
-      if (drawMode.type === 'point') {
-        completeDrawing();
-      }
-    };
-
-    const handleDblClick = () => {
-      if (drawMode.type && drawMode.type !== 'select' && drawingPoints.current.length >= 2) {
-        completeDrawing();
-      }
-    };
-
-    if (drawMode.type && drawMode.type !== 'select') {
-      map.current.on('click', handleMapClick);
-      map.current.on('dblclick', handleDblClick);
-    }
-
-    return () => {
-      map.current?.off('click', handleMapClick);
-      map.current?.off('dblclick', handleDblClick);
-    };
-  }, [drawMode]);
-
-  const completeDrawing = () => {
-    const points = [...drawingPoints.current];
-    if (points.length === 0 || !drawMode.type || drawMode.type === 'select') return;
-
-    let geometry: any;
-    let type: 'point' | 'line' | 'polygon' = 'point';
-
-    if (drawMode.type === 'point') {
-      geometry = { type: 'Point', coordinates: points[0] };
-      type = 'point';
-    } else if (drawMode.type === 'line' && points.length >= 2) {
-      geometry = { type: 'LineString', coordinates: points };
-      type = 'line';
-    } else if (drawMode.type === 'polygon' && points.length >= 3) {
-      geometry = { type: 'Polygon', coordinates: [[...points, points[0]]] };
-      type = 'polygon';
-    }
-
-    if (geometry) {
-      const newFeature = {
-        type: 'Feature' as const,
-        geometry,
-        properties: drawMode.purpose === 'annotation' 
-          ? { _annotation: true, created: new Date().toISOString() }
-          : {}
-      };
-
-      if (drawMode.purpose === 'feature' && drawMode.targetLayerId) {
-        const targetLayer = layers.find(l => l.id === drawMode.targetLayerId);
-        if (targetLayer) {
-          const updatedLayer = {
-            ...targetLayer,
-            data: {
-              ...targetLayer.data,
-              features: [...targetLayer.data.features, newFeature]
-            }
-          };
-          onLayersChange(layers.map(l => l.id === drawMode.targetLayerId ? updatedLayer : l));
-        }
-      } else {
-        const isAnnotation = drawMode.purpose === 'annotation';
-        const newLayer: GISLayer = {
-          id: `layer-${Date.now()}`,
-          name: isAnnotation ? `Annotation ${drawMode.type}` : `New ${drawMode.type}`,
-          type,
-          visible: true,
-          opacity: 1,
-          selectable: true,
-          data: {
-            type: 'FeatureCollection',
-            features: [newFeature]
-          },
-          style: {
-            color: isAnnotation ? '#10b981' : '#f59e0b',
-            fillColor: isAnnotation ? '#10b981' : '#f59e0b',
-            fillOpacity: isAnnotation ? 0.2 : 0.3,
-            weight: 2
-          }
-        };
-
-        onLayersChange([...layers, newLayer]);
-      }
-    }
-
-    drawingPoints.current = [];
-    drawingMarkers.current.forEach(m => m.remove());
-    drawingMarkers.current = [];
-  };
+  // (Optional) TODO: Hook up drawing behavior for draw-point/draw-line/draw-polygon
+  // For now, these modes don't modify the map; they can be implemented once
+  // the app is compiling and you've confirmed the basic GIS layout works.
 
   return (
     <div className="relative w-full h-full">
-      <div 
-        ref={mapContainer} 
-        className="absolute inset-0 w-full h-full"
-        style={{ 
-          cursor: drawMode.type === 'select' && drawMode.selectMode === 'rectangle' 
-            ? 'crosshair' 
-            : drawMode.type === 'select' 
-            ? 'pointer'
-            : 'default' 
-        }}
+      <div
+        ref={containerRef}
+        className="absolute inset-0 rounded-none overflow-hidden"
       />
-      
-      {/* Basemap Switcher */}
-      <div className="absolute top-4 left-4 z-[998]">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button 
-              variant="default" 
-              size="icon"
-              className="h-9 w-9 rounded-md shadow-lg bg-background border-2 border-primary/20 hover:bg-muted hover:border-primary"
-            >
-              <Layers className="h-5 w-5 text-foreground" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-40 bg-background border-2 z-[1000]">
-            <DropdownMenuItem 
-              onClick={() => setBasemap('street')}
-              className={basemap === 'street' ? 'bg-primary/10 font-medium' : ''}
-            >
-              Street
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => setBasemap('satellite')}
-              className={basemap === 'satellite' ? 'bg-primary/10 font-medium' : ''}
-            >
-              Satellite
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => setBasemap('terrain')}
-              className={basemap === 'terrain' ? 'bg-primary/10 font-medium' : ''}
-            >
-              Terrain
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
     </div>
   );
 };
